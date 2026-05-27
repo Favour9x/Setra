@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase-server";
 import { fetchInvoices } from "@/lib/services/invoice";
 import { fetchSubscriptions } from "@/lib/services/subscription";
+import { fetchTipsAnalytics } from "@/lib/services/tips";
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +39,10 @@ export async function GET(request: NextRequest) {
     // 3. Fetch subscriptions
     const subscriptions = await fetchSubscriptions(user.id, supabase);
 
-    // 4. Calculate core financial metrics
+    // 4. Fetch tips analytics
+    const tipsAnalytics = await fetchTipsAnalytics(user.id);
+
+    // 5. Calculate core financial metrics
     const totalVolume = transactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
     const invoicesPaid = invoices.filter(inv => inv.status === "paid").length;
     const activeSubs = subscriptions.filter(sub => sub.status === "active");
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
       .filter(tx => tx.type === "expense" || tx.type === "sent")
       .reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
 
-    // 5. Generate Payment Activity Graph (Recharts data)
+    // 6. Generate Payment Activity Graph (Recharts data)
     // Group transactions by date
     const dateMap: { [key: string]: { income: number; expense: number } } = {};
     
@@ -93,7 +97,11 @@ export async function GET(request: NextRequest) {
         totalInvoices: invoices.length,
         totalSubscriptions: subscriptions.length,
         incomeSum,
-        expenseSum
+        expenseSum,
+        tipsThisWeek: tipsAnalytics.thisWeekTotal,
+        tipsLastWeek: tipsAnalytics.lastWeekTotal,
+        bestTipper: tipsAnalytics.bestTipper,
+        bestDay: tipsAnalytics.bestDay,
       },
       graphData
     });
