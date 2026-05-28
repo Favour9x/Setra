@@ -34,7 +34,8 @@ export async function handleCircleWebhook(payload: CircleNotification) {
 
   console.log(`🔔 Webhook received: ${notificationType} state=${state} tx=${circleTxId}`);
 
-  if (state !== "COMPLETE" && state !== "FAILED") {
+  const terminalStates = ["COMPLETE", "COMPLETED", "FAILED"];
+  if (!terminalStates.includes(state)) {
     console.log(`⏭️ Skipping non-terminal state: ${state}`);
     return;
   }
@@ -58,7 +59,7 @@ async function handleOutboundTransaction(
   destinationAddress: string | undefined,
   walletId: string | undefined
 ) {
-  const isComplete = state === "COMPLETE";
+  const isComplete = state === "COMPLETED" || state === "COMPLETE";
 
   const { data: existing } = await supabase
     .from("transactions")
@@ -68,7 +69,38 @@ async function handleOutboundTransaction(
     .maybeSingle();
 
   if (!existing) {
-    console.log(`⏭️ No pending transaction found for outbound tx ${circleTxId}`);
+    // Race condition: webhook arrived before API route finished DB insert.
+    // Recover by looking up user from walletId.
+    if (!walletId) {
+      console.log(`⏭️ No walletId in webhook, cannot recover outbound tx ${circleTxId}`);
+      return;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("wallet_id", walletId)
+      .maybeSingle();
+    if (!profile) {
+      console.log(`⏭️ No profile for wallet ${walletId}, cannot recover outbound tx ${circleTxId}`);
+      return;
+    }
+    await supabase.from("transactions").insert({
+      user_id: profile.id,
+      recipient: destinationAddress || "Unknown",
+      amount,
+      type: "expense",
+      category: "Transfer",
+      currency: "USDC",
+      status: isComplete ? "confirmed" : "failed",
+      tx_hash: txHash || null,
+      metadata: {
+        transactionId: circleTxId,
+        blockchain: "ARC-TESTNET",
+        recipient_address: destinationAddress || "",
+      },
+      created_at: new Date().toISOString(),
+    });
+    console.log(`✅ Webhook recovered missing outbound transaction record for ${circleTxId}`);
     return;
   }
 
@@ -109,7 +141,7 @@ async function handleInboundTransaction(
     return;
   }
 
-  const isComplete = state === "COMPLETE";
+  const isComplete = state === "COMPLETED" || state === "COMPLETE";
 
   const { data: existing } = await supabase
     .from("transactions")

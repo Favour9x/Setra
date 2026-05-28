@@ -3,34 +3,60 @@ import { verifyCircleSignature } from "@/lib/webhooks/verify";
 import { handleCircleWebhook } from "@/lib/webhooks/handler";
 import { listWebhookSubscriptions, registerWebhookSubscription } from "@/lib/webhooks/init";
 
+const ALLOWED_IPS = new Set([
+  "54.243.112.156",
+  "100.24.191.35",
+  "54.165.52.248",
+  "54.87.106.46",
+]);
+
+async function processWebhook(body: string) {
+  try {
+    const payload = JSON.parse(body);
+    await handleCircleWebhook(payload);
+  } catch (err: any) {
+    console.error("❌ Webhook handler error:", err);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const signature = request.headers.get("x-circle-signature");
   const keyId = request.headers.get("x-circle-key-id");
-
-  // Circle sends a verification probe with no signature headers
-  if (!signature || !keyId) {
-    return NextResponse.json({ success: true, message: "Webhook endpoint verified" });
-  }
-
   const body = await request.text();
 
+  // Respond 200 to all valid requests within 5s as Circle requires.
+  // Actual processing happens asynchronously after response.
+  const respondOk = () => NextResponse.json({ success: true });
+
+  // Verification probe from Circle (during subscription creation).
+  // May come with or without signature headers. Always accept.
+  if (!signature || !keyId) {
+    return respondOk();
+  }
+
+  // Probe with signature headers but no real key to verify
+  if (body.includes("notificationType") && body.includes("webhooks.test")) {
+    return respondOk();
+  }
+
+  // Verify the signature for real webhook notifications
   const isValid = await verifyCircleSignature(body, signature, keyId);
   if (!isValid) {
     console.error("❌ Invalid Circle webhook signature");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  try {
-    const payload = JSON.parse(body);
-    await handleCircleWebhook(payload);
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("❌ Webhook handler error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  // Respond 200 immediately, then process in background
+  const res = respondOk();
+  processWebhook(body);
+  return res;
 }
 
 export async function HEAD() {
+  return new Response(null, { status: 200 });
+}
+
+export async function OPTIONS() {
   return new Response(null, { status: 200 });
 }
 

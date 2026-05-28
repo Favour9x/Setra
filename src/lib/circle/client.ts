@@ -87,6 +87,7 @@ export async function getWalletBalance(
   console.log(`📡 CIRCLE SDK: Querying getWalletTokenBalance for wallet ${walletId}...`);
   const response = await client.getWalletTokenBalance({
     id: walletId,
+    includeAll: true,
   });
 
   console.log("================== CIRCLE RAW BALANCES RESPONSE ==================");
@@ -177,13 +178,34 @@ export async function sendToken(
 
   console.log("Circle tx created:", transactionId);
 
-  // FIRE-AND-FORGET: Return immediately after submission.
-  // Transaction status will be delivered via webhook.
-  // The caller should insert a "pending" record and await webhook update.
+  // Poll for transaction completion (max 2 minutes)
+  let transactionState = "INITIATED";
+  let txHash: string | undefined;
+  let attempts = 0;
+  const maxAttempts = 40;
+
+  const terminalStates = ["COMPLETE", "COMPLETED", "FAILED", "CANCELLED", "DENIED"];
+  while (!terminalStates.includes(transactionState) && attempts < maxAttempts) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const statusResponse = await client.getTransaction({ id: transactionId });
+    transactionState = statusResponse.data?.transaction?.state || "UNKNOWN";
+    txHash = statusResponse.data?.transaction?.txHash;
+    console.log("Circle tx state:", transactionState, "txHash:", txHash);
+    attempts++;
+  }
+
+  if (attempts >= maxAttempts) {
+    throw new Error("Transaction timeout - state never reached terminal");
+  }
+
+  if (transactionState === "FAILED" || transactionState === "CANCELLED" || transactionState === "DENIED") {
+    throw new Error(`Transaction ${transactionState.toLowerCase()}`);
+  }
+
   return {
     transactionId,
-    status: "PENDING",
-    txHash: undefined,
+    status: transactionState,
+    txHash,
   };
 }
 

@@ -94,8 +94,8 @@ export async function insertRecipientReceivedTransaction(
     metadata?: Record<string, any>;
   }
 ) {
-  if (!params.txHash) {
-    console.log("⏭️ No txHash, skipping recipient received insert");
+  if (!params.destinationAddress || !params.amount) {
+    console.log("⏭️ Missing destinationAddress or amount, skipping recipient received insert");
     return;
   }
 
@@ -111,17 +111,20 @@ export async function insertRecipientReceivedTransaction(
     return;
   }
 
-  // Check for duplicate: same tx_hash + received type
+  // Check for duplicate: match by recipient + amount + recent timestamp (within 5 min)
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const { data: existing } = await client
     .from("transactions")
     .select("id")
-    .eq("tx_hash", params.txHash)
-    .eq("type", "received")
+    .eq("user_id", recipientProfile.id)
+    .eq("amount", params.amount)
+    .in("type", ["income", "received"])
+    .gte("created_at", fiveMinAgo)
     .limit(1)
     .maybeSingle();
 
   if (existing) {
-    console.log(`⏭️ Received transaction for tx ${params.txHash} already exists, skipping`);
+    console.log(`⏭️ Received transaction for ${params.amount} USDC to ${params.destinationAddress} already exists, skipping`);
     return;
   }
 
@@ -129,11 +132,11 @@ export async function insertRecipientReceivedTransaction(
     user_id: recipientProfile.id,
     recipient: params.destinationAddress,
     amount: params.amount,
-    type: "received",
+    type: "income",
     category: params.category || "Transfer",
     currency: "USDC",
     status: "success",
-    tx_hash: params.txHash,
+    tx_hash: params.txHash || null,
     metadata: {
       blockchain: "ARC-TESTNET",
       ...(params.metadata || {}),
@@ -145,6 +148,48 @@ export async function insertRecipientReceivedTransaction(
     console.error("❌ Failed to insert recipient received transaction:", error.message);
   } else {
     console.log(`✅ Received transaction recorded for user ${recipientProfile.id}`);
+  }
+}
+
+/**
+ * Calculate the user's USDC balance from the local transactions table.
+ * Balance = SUM(received) - SUM(sent) for all confirmed/success transactions.
+ * Returns 0 if the user has no transactions or any error occurs.
+ * Always returns a fresh value - no cache.
+ */
+export async function calculateLocalBalance(client: any, userId: string): Promise<number> {
+  if (!userId) return 0;
+
+  try {
+    const { data: transactions, error } = await client
+      .from("transactions")
+      .select("amount, type, status")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Failed to fetch transactions for local balance:", error.message);
+      return 0;
+    }
+
+    if (!transactions || transactions.length === 0) return 0;
+
+    let balance = 0;
+    for (const tx of transactions) {
+      const isReceived = tx.type === "income" || tx.type === "received";
+      const isSent = tx.type === "expense" || tx.type === "sent";
+      const isConfirmed = tx.status === "success" || tx.status === "confirmed";
+
+      if (!isConfirmed) continue;
+
+      const amount = Number(tx.amount) || 0;
+      if (isReceived) balance += amount;
+      if (isSent) balance -= amount;
+    }
+
+    return Math.max(0, balance);
+  } catch (err) {
+    console.error("Error calculating local balance:", err);
+    return 0;
   }
 }
 

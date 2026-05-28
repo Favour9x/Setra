@@ -227,16 +227,21 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           setWalletAddress(currentWalletAddress);
         }
         
-        // Balance comes ONLY from Circle API - no local fallback
+        // Use displayBalance if available (heuristic: Circle vs local), otherwise Circle balance
         if (balanceData && balanceData.success) {
           console.log('📊 FinancialContext: Balance response:', balanceData);
-          const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
-          if (usdcBalance) {
-            finalBalance = parseFloat(usdcBalance.amount);
-            console.log('💵 FinancialContext: USDC Balance from Circle:', finalBalance);
+          if (typeof balanceData.displayBalance === 'number') {
+            finalBalance = balanceData.displayBalance;
+            console.log(`💵 FinancialContext: Balance from ${balanceData.source || 'unknown'} source:`, finalBalance);
           } else {
-            console.log('⚠️ FinancialContext: No USDC balance found in Circle response');
-            finalBalance = 0;
+            const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
+            if (usdcBalance) {
+              finalBalance = parseFloat(usdcBalance.amount);
+              console.log('💵 FinancialContext: USDC Balance from Circle:', finalBalance);
+            } else {
+              console.log('⚠️ FinancialContext: No USDC balance found in Circle response');
+              finalBalance = 0;
+            }
           }
         } else {
           console.warn('❌ FinancialContext: Circle balance fetch failed or was skipped');
@@ -459,11 +464,25 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
           console.log('📊 Balance response:', balanceData);
+          
+          // Use displayBalance (heuristic: highest of Circle vs local) if available
+          if (typeof balanceData.displayBalance === 'number') {
+            console.log(`✅ Balance from ${balanceData.source || 'unknown'} source: $${balanceData.displayBalance}`);
+            return balanceData.displayBalance;
+          }
+          
+          // Fallback to parsing Circle balances
           const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
           if (usdcBalance) {
             const newBalance = parseFloat(usdcBalance.amount);
             console.log(`✅ Balance fetched from Circle API: $${newBalance}`);
             return newBalance;
+          }
+          
+          // Use local balance if Circle returned nothing
+          if (typeof balanceData.localBalance === 'number') {
+            console.log(`✅ Balance from local transactions: $${balanceData.localBalance}`);
+            return balanceData.localBalance;
           }
         }
         
@@ -542,10 +561,21 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
             
             if (balanceResponse.ok) {
               const balanceData = await balanceResponse.json();
-              const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
-              if (usdcBalance) {
-                const freshBalance = parseFloat(usdcBalance.amount);
-                console.log(`💰 Realtime: Setting balance to Circle API value: $${freshBalance}`);
+              let freshBalance = 0;
+              if (typeof balanceData.displayBalance === 'number') {
+                freshBalance = balanceData.displayBalance;
+                console.log(`💰 Realtime: Balance from ${balanceData.source || 'unknown'} source: $${freshBalance}`);
+              } else {
+                const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
+                if (usdcBalance) {
+                  freshBalance = parseFloat(usdcBalance.amount);
+                  console.log(`💰 Realtime: Setting balance to Circle API value: $${freshBalance}`);
+                } else if (typeof balanceData.localBalance === 'number') {
+                  freshBalance = balanceData.localBalance;
+                  console.log(`💰 Realtime: Setting balance to local value: $${freshBalance}`);
+                }
+              }
+              if (freshBalance >= 0) {
                 setState(prev => ({ ...prev, balance: freshBalance }));
               }
             }
@@ -626,6 +656,50 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, [user?.id, supabase, walletId]);
+
+  // Periodic polling as fallback for Realtime (every 30s)
+  useEffect(() => {
+    if (!walletId || !user) return;
+
+    console.log('⏰ Setting up periodic balance poll (30s interval)');
+    const interval = setInterval(async () => {
+      console.log('⏰ Periodic poll: refreshing balance');
+      try {
+        const balanceResponse = await fetch('/api/wallet/balance', {
+          credentials: 'include',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletId }),
+        });
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json();
+          let freshBalance = 0;
+          if (typeof balanceData.displayBalance === 'number') {
+            freshBalance = balanceData.displayBalance;
+          } else {
+            const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
+            if (usdcBalance) freshBalance = parseFloat(usdcBalance.amount);
+            else if (typeof balanceData.localBalance === 'number') freshBalance = balanceData.localBalance;
+          }
+          if (freshBalance >= 0) {
+            setState(prev => {
+              if (prev.balance !== freshBalance) {
+                console.log(`⏰ Periodic poll: balance updated from $${prev.balance} to $${freshBalance}`);
+              }
+              return { ...prev, balance: freshBalance };
+            });
+          }
+        }
+      } catch (error) {
+        console.error('⏰ Periodic poll error:', error);
+      }
+    }, 30000);
+
+    return () => {
+      console.log('⏰ Cleaning up periodic poll');
+      clearInterval(interval);
+    };
+  }, [walletId, user]);
 
   const updateTransactionStatus = useCallback((id: string, status: TransactionStatus, message?: string) => {
     setState(prev => ({

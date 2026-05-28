@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBalance } from "@/lib/payments";
 import { createClient as createServerSupabase } from "@/lib/supabase-server";
-
-// Simple 30-second in-memory balance cache
-interface CacheEntry {
-  balances: any;
-  timestamp: number;
-}
-
-const balanceCache: Record<string, CacheEntry> = {};
-const CACHE_TTL_MS = 30000; // 30 seconds
+import { createClient } from "@supabase/supabase-js";
+import { calculateLocalBalance } from "@/lib/services/ledger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,18 +13,6 @@ export async function POST(request: NextRequest) {
         { error: "Wallet ID is required" },
         { status: 400 }
       );
-    }
-
-    // Check in-memory cache first to avoid repeated slow API roundtrips
-    const cached = balanceCache[walletId];
-    const now = Date.now();
-    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
-      console.log(`⚡ Balance Cache Hit for wallet ${walletId} (TTL remaining: ${Math.round((CACHE_TTL_MS - (now - cached.timestamp)) / 1000)}s)`);
-      return NextResponse.json({
-        success: true,
-        balances: cached.balances,
-        cached: true
-      });
     }
 
     // Authenticate the user using cookies
@@ -68,24 +49,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch fresh balance from Circle
-    console.log(`🔄 Fetching fresh balance from Circle for wallet ${walletId}...`);
+    // Fetch fresh balance from Circle API
     const balances = await getBalance(walletId);
-    
-    console.log("================== MAPPED BALANCES TO FRONTEND ==================");
-    console.log(JSON.stringify(balances, null, 2));
-    console.log("================================================================");
+    const circleUsdc = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
+    const circleAmount = circleUsdc ? parseFloat(circleUsdc.amount) : 0;
 
-    // Cache the fresh results
-    balanceCache[walletId] = {
-      balances,
-      timestamp: Date.now()
-    };
+    // Calculate local balance as fallback
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const localBalance = await calculateLocalBalance(adminSupabase, user.id);
+
+    // Use Circle balance if it's higher (includes external transfers not tracked locally),
+    // otherwise use local balance (faster to update after Setra-to-Setra transfers)
+    const displayBalance = circleAmount > localBalance ? circleAmount : localBalance;
 
     return NextResponse.json({
       success: true,
       balances,
-      cached: false
+      localBalance,
+      displayBalance,
+      source: circleAmount > localBalance ? "circle" : "local",
     });
   } catch (error: any) {
     console.error("Balance fetch error:", error);

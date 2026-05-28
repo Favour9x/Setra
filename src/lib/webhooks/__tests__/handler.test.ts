@@ -48,7 +48,7 @@ function makePayload(
     notificationType: "transactions.inbound",
     notification: {
       id: "circle-tx-123",
-      state: "COMPLETE",
+      state: "COMPLETED",
       amounts: ["50.00"],
       blockchain: "ARC-TESTNET",
       createDate: "2026-05-28T00:00:00Z",
@@ -93,11 +93,11 @@ describe("handleCircleWebhook", () => {
   });
 
   describe("outbound transactions", () => {
-    it("updates pending transaction and sends payment_sent notification on COMPLETE", async () => {
+    it("updates pending transaction and sends payment_sent notification on COMPLETED", async () => {
       const payload = makePayload(
         {
           id: "circle-tx-1",
-          state: "COMPLETE",
+          state: "COMPLETED",
           amounts: ["25.00"],
           destinationAddress: "0xdest",
           transactionHash: "0xhash-out",
@@ -144,13 +144,46 @@ describe("handleCircleWebhook", () => {
       expect(mockCreateNotification).not.toHaveBeenCalled();
     });
 
-    it("skips when no pending transaction found", async () => {
+    it("recovers missing transaction by walletId", async () => {
+      const payload = makePayload(
+        {
+          id: "circle-tx-recover",
+          state: "COMPLETED",
+          amounts: ["10.00"],
+          destinationAddress: "0xdest",
+          walletId: "wallet-1",
+          transactionHash: "0xhash-recover",
+        },
+        { notificationType: "transactions.outbound" }
+      );
+
+      const local = createDb();
+      local._chain.maybeSingle = vi
+        .fn()
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { id: "user-recover" }, error: null });
+      db = local;
+
+      await handleCircleWebhook(payload);
+
+      expect(local._chain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: "user-recover",
+          amount: 10,
+          type: "expense",
+          status: "confirmed",
+        })
+      );
+    });
+
+    it("skips when no pending transaction found and no walletId to recover", async () => {
       const payload = makePayload(
         {
           id: "circle-tx-3",
-          state: "COMPLETE",
+          state: "COMPLETED",
           amounts: ["10.00"],
           destinationAddress: "0xdest",
+          walletId: undefined,
         },
         { notificationType: "transactions.outbound" }
       );
@@ -168,7 +201,7 @@ describe("handleCircleWebhook", () => {
     it("skips inbound without txHash", async () => {
       const payload = makePayload({
         id: "circle-tx-4",
-        state: "COMPLETE",
+        state: "COMPLETED",
         amounts: ["50.00"],
         transactionHash: undefined,
       });
@@ -180,7 +213,7 @@ describe("handleCircleWebhook", () => {
     it("skips already-recorded transaction by tx_hash", async () => {
       const payload = makePayload({
         id: "circle-tx-5",
-        state: "COMPLETE",
+        state: "COMPLETED",
         amounts: ["50.00"],
         transactionHash: "0xexisting",
       });
@@ -212,7 +245,7 @@ describe("handleCircleWebhook", () => {
     it("skips inbound to non-Setra destination", async () => {
       const payload = makePayload({
         id: "circle-tx-7",
-        state: "COMPLETE",
+        state: "COMPLETED",
         amounts: ["50.00"],
         transactionHash: "0xhash7",
         destinationAddress: "0xunknown",
@@ -232,7 +265,7 @@ describe("handleCircleWebhook", () => {
     it("creates transaction and sends payment_received notification for valid inbound", async () => {
       const payload = makePayload({
         id: "circle-tx-8",
-        state: "COMPLETE",
+        state: "COMPLETED",
         amounts: ["100.00"],
         transactionHash: "0xhash8",
         destinationAddress: "0xdest-user",
