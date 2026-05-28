@@ -45,12 +45,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, message: "Webhook already registered", subscriptions: existing });
     }
 
-    const subscriptionId = await registerWebhookSubscription(endpoint);
-    if (!subscriptionId) {
-      return NextResponse.json({ error: "Failed to register webhook" }, { status: 500 });
+    const result = await registerWebhookSubscription(endpoint);
+    if (!result.subscriptionId) {
+      return NextResponse.json({ error: result.error || "Failed to register webhook" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, subscriptionId });
+    return NextResponse.json({ success: true, subscriptionId: result.subscriptionId });
   }
 
   if (action === "list") {

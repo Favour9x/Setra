@@ -1,6 +1,6 @@
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
 
-export async function registerWebhookSubscription(endpoint: string): Promise<string | null> {
+export async function registerWebhookSubscription(endpoint: string): Promise<{ subscriptionId: string | null; error?: string }> {
   const apiKey = process.env.CIRCLE_API_KEY;
   const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
 
@@ -19,15 +19,16 @@ export async function registerWebhookSubscription(endpoint: string): Promise<str
     const subscriptionId = response.data?.id;
     if (subscriptionId) {
       console.log(`✅ Webhook subscription created: ${subscriptionId} → ${endpoint}`);
-      return subscriptionId;
+      return { subscriptionId };
     }
 
     console.error("❌ No subscription ID in response");
-    return null;
+    return { subscriptionId: null, error: "No subscription ID in response" };
   } catch (err: any) {
     const errorData = err?.response?.data || err?.message || err;
-    console.error("❌ Failed to create webhook subscription:", JSON.stringify(errorData));
-    return null;
+    const errorStr = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
+    console.error("❌ Failed to create webhook subscription:", errorStr);
+    return { subscriptionId: null, error: errorStr };
   }
 }
 
