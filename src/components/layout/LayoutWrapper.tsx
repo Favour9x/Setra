@@ -31,23 +31,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [authLoading]);
 
-  // Theme application logic
-  useEffect(() => {
-    if (!mounted || isAuthPage) return;
-    
-    const root = window.document.documentElement;
-    const theme = settings.theme;
-    
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      root.classList.remove("light", "dark");
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.remove("light", "dark");
-      root.classList.add(theme);
-    }
-  }, [settings.theme, mounted, isAuthPage]);
-
   // Redirect logic in useEffect to avoid render-time state updates
   // MUST be before early returns to maintain hooks order
   useEffect(() => {

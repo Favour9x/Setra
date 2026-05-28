@@ -62,7 +62,8 @@ function BridgePageContent() {
     fetch("/api/bridge/supported-chains")
       .then((r) => r.json())
       .then((data) => {
-        setChains(data.chains || []);
+        const chainIds = (data.chains || []).map((c: any) => c.chain || c.id || c);
+        setChains(chainIds);
       })
       .catch((err) => {
         notify("Failed to load supported chains");
