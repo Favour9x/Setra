@@ -1,36 +1,28 @@
 import { BridgeKit } from "@circle-fin/bridge-kit";
-import { createViemAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
-import { privateKeyToAccount } from "viem/accounts";
+import { createCircleWalletsAdapter } from "@circle-fin/adapter-circle-wallets";
 import type { ChainDefinition, BridgeChainIdentifier } from "@circle-fin/bridge-kit";
-import type { Hex } from "viem";
 
 let kitInstance: BridgeKit | null = null;
-let adapterInstance: ReturnType<typeof createViemAdapterFromPrivateKey> | null = null;
+let adapterInstance: ReturnType<typeof createCircleWalletsAdapter> | null = null;
 let chainsCache: ChainDefinition[] | null = null;
 
-function getPrivateKey(): Hex {
-  const pk =
-    process.env.BRIDGE_PRIVATE_KEY ||
-    process.env.CIRCLE_AGENT_PRIVATE_KEY ||
-    process.env.GATEWAY_PRIVATE_KEY;
-  if (!pk) throw new Error("Bridge private key not configured");
-  return (pk.startsWith("0x") ? pk : `0x${pk}`) as Hex;
+function ensureCredentials() {
+  const apiKey = process.env.CIRCLE_API_KEY;
+  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
+  if (!apiKey || !entitySecret) {
+    throw new Error("Circle API credentials not configured (CIRCLE_API_KEY, CIRCLE_ENTITY_SECRET)");
+  }
+  return { apiKey, entitySecret };
 }
 
 function ensureKit() {
   if (kitInstance && adapterInstance) return { kit: kitInstance, adapter: adapterInstance };
-  const privateKey = getPrivateKey();
-  const adapter = createViemAdapterFromPrivateKey({ privateKey });
+  const { apiKey, entitySecret } = ensureCredentials();
+  const adapter = createCircleWalletsAdapter({ apiKey, entitySecret });
   const kit = new BridgeKit();
   kitInstance = kit;
   adapterInstance = adapter;
   return { kit, adapter };
-}
-
-export function getBridgeWalletAddress(): string {
-  const pk = getPrivateKey();
-  const account = privateKeyToAccount(pk);
-  return account.address;
 }
 
 function ensureChains(): ChainDefinition[] {
@@ -56,12 +48,16 @@ export interface BridgeEstimateParams {
   fromChain: string;
   toChain: string;
   amount: string;
+  fromAddress: string;
+  toAddress?: string;
 }
 
 export interface BridgeExecuteParams {
   fromChain: string;
   toChain: string;
   amount: string;
+  fromAddress: string;
+  toAddress?: string;
   recipientAddress?: string;
 }
 
@@ -73,8 +69,16 @@ export async function estimateBridge(params: BridgeEstimateParams) {
     throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
   }
   return kit.estimate({
-    from: { adapter, chain: fromChain as BridgeChainIdentifier },
-    to: { adapter, chain: toChain as BridgeChainIdentifier },
+    from: {
+      adapter,
+      chain: fromChain as BridgeChainIdentifier,
+      address: params.fromAddress,
+    },
+    to: {
+      adapter,
+      chain: toChain as BridgeChainIdentifier,
+      address: params.toAddress || params.fromAddress,
+    },
     amount: params.amount,
   });
 }
@@ -86,12 +90,18 @@ export async function executeBridge(params: BridgeExecuteParams) {
   if (!fromChain || !toChain) {
     throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
   }
-  const to = params.recipientAddress
-    ? { adapter, chain: toChain as BridgeChainIdentifier, recipientAddress: params.recipientAddress }
-    : { adapter, chain: toChain as BridgeChainIdentifier };
   return kit.bridge({
-    from: { adapter, chain: fromChain as BridgeChainIdentifier },
-    to,
+    from: {
+      adapter,
+      chain: fromChain as BridgeChainIdentifier,
+      address: params.fromAddress,
+    },
+    to: {
+      adapter,
+      chain: toChain as BridgeChainIdentifier,
+      address: params.toAddress || params.fromAddress,
+      ...(params.recipientAddress ? { recipientAddress: params.recipientAddress } : {}),
+    },
     amount: params.amount,
   });
 }

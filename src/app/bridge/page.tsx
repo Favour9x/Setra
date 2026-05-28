@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from "@/components/ui/select";
 import { useNotify } from "@/components/ui/notification";
-import { ArrowLeft, Loader2, ArrowRightLeft, CheckCircle2, AlertCircle, RefreshCw, Info } from "lucide-react";
+import { ArrowLeft, Loader2, ArrowRightLeft, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
@@ -46,7 +46,6 @@ function BridgePageContent() {
   const { notify } = useNotify();
   const [chains, setChains] = useState<ChainInfo[]>([]);
   const [chainsLoading, setChainsLoading] = useState(true);
-  const [bridgeAddress, setBridgeAddress] = useState<string | null>(null);
   const [sourceChain, setSourceChain] = useState("");
   const [destChain, setDestChain] = useState("");
   const [amount, setAmount] = useState("");
@@ -61,16 +60,9 @@ function BridgePageContent() {
   useEffect(() => {
     (async () => {
       try {
-        const [chainsRes, addrRes] = await Promise.all([
-          fetch("/api/bridge/supported-chains"),
-          fetch("/api/bridge/address"),
-        ]);
-        const chainsData = await chainsRes.json();
-        setChains(chainsData.chains || []);
-        if (addrRes.ok) {
-          const addrData = await addrRes.json();
-          setBridgeAddress(addrData.address);
-        }
+        const res = await fetch("/api/bridge/supported-chains");
+        const data = await res.json();
+        setChains(data.chains || []);
       } catch {
         notify("Failed to load supported chains");
       } finally {
@@ -213,21 +205,6 @@ function BridgePageContent() {
 
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="lg:col-span-7 space-y-8">
-          {bridgeAddress && (
-            <Card className="border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 overflow-hidden">
-              <CardContent className="p-4 flex items-start gap-3 text-sm">
-                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                <div>
-                  <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Bridge Wallet Address</p>
-                  <p className="text-amber-700 dark:text-amber-400 font-mono text-xs break-all">{bridgeAddress}</p>
-                  <p className="text-amber-600 dark:text-amber-500 mt-1 text-xs">
-                    Fund this wallet with USDC on the source chain before bridging. The bridge wallet is separate from your Circle wallet.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           <Card className="border-none shadow-premium bg-card overflow-hidden">
             <CardHeader className="p-8 pb-4">
               <CardTitle className="text-xl flex items-center gap-2">
