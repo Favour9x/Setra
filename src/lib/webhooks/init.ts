@@ -6,7 +6,7 @@ export async function registerWebhookSubscription(endpoint: string): Promise<{ s
 
   if (!apiKey || !entitySecret) {
     console.error("❌ Circle API credentials not configured for webhook registration");
-    return null;
+    return { subscriptionId: null, error: "Circle API credentials not configured" };
   }
 
   try {
