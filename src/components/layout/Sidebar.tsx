@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAVIGATION_ITEMS, SECONDARY_NAVIGATION } from "@/constants/navigation";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { motion, AnimatePresence } from "motion/react";
@@ -24,7 +24,12 @@ import {
   CheckCircle2, 
   X,
   ShieldAlert,
-  Plus
+  Plus,
+  History,
+  ArrowRightLeft,
+  Repeat,
+  PieChart,
+  Bell,
 } from "lucide-react";
 
 const BOTTOM_TAB_ITEMS = [
@@ -189,87 +194,92 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
           </div>
           
           <ScrollArea className="flex-1 px-4">
-            <div className="space-y-1 py-4">
-              <h2 className="mb-3 px-4 text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase opacity-40">
-                Overview
-              </h2>
-              <div className="space-y-1">
-                {NAVIGATION_ITEMS.map((item) => {
-                  const isActive = pathname === item.href;
-                  const isSettings = item.title === "Settings";
-                  
-                  if (isSettings) {
+            {[
+              {
+                label: "Overview",
+                items: [
+                  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+                ],
+              },
+              {
+                label: "Payments",
+                items: [
+                  { title: "Send Payment", href: "/send", icon: Send },
+                  { title: "Invoices", href: "/invoices", icon: Receipt },
+                  { title: "Transactions", href: "/transactions", icon: History },
+                ],
+              },
+              {
+                label: "Tools",
+                items: [
+                  { title: "Bridge", href: "/bridge", icon: ArrowRightLeft },
+                  { title: "Tips", href: "/tips", icon: HandCoins },
+                  { title: "Subscriptions", href: "/subscriptions", icon: Repeat },
+                ],
+              },
+              {
+                label: "Management",
+                items: [
+                  { title: "Automation", href: "/automation", icon: Zap },
+                  { title: "Analytics", href: "/analytics", icon: PieChart },
+                ],
+              },
+              {
+                label: "Account",
+                items: [
+                  { title: "Notifications", href: "/notifications", icon: Bell },
+                  { title: "Settings", href: "/settings", icon: Settings },
+                ],
+              },
+            ].map((section, sectionIdx) => (
+              <div key={section.label} className={cn("space-y-1 py-4", sectionIdx > 0 && "pt-2")}>
+                <h2 className="mb-3 px-4 text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase opacity-40">
+                  {section.label}
+                </h2>
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const isActive = pathname === item.href || (item.href === "/automation" && pathname === "/workflows");
+                    const isSettings = item.title === "Settings";
+
+                    if (isSettings) {
+                      return (
+                        <button
+                          key={item.href}
+                          onClick={() => setSettingsOpen(true)}
+                          className={cn(
+                            "w-full group flex items-center rounded-xl px-4 py-2.5 text-sm font-bold transition-all hover:bg-muted/50 hover:text-foreground text-muted-foreground/70"
+                          )}
+                        >
+                          <item.icon className="mr-3 h-4 w-4 transition-transform group-hover:scale-110 text-muted-foreground/50 group-hover:text-primary" />
+                          {item.title}
+                        </button>
+                      );
+                    }
+
                     return (
-                      <button
+                      <Link
                         key={item.href}
-                        onClick={() => setSettingsOpen(true)}
+                        href={item.href}
+                        onClick={(e) => handleNavigation(e, item.href)}
                         className={cn(
-                          "w-full group flex items-center rounded-xl px-4 py-2.5 text-sm font-bold transition-all hover:bg-muted/50 hover:text-foreground text-muted-foreground/70"
+                          "group flex items-center rounded-xl px-4 py-2.5 text-sm font-bold transition-all hover:bg-muted/50 hover:text-foreground",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10 hover:bg-primary/90"
+                            : "text-muted-foreground/70"
                         )}
                       >
-                        <item.icon className="mr-3 h-4 w-4 transition-transform group-hover:scale-110 text-muted-foreground/50 group-hover:text-primary" />
+                        <item.icon className={cn("mr-3 h-4 w-4 transition-transform group-hover:scale-110", isActive ? "text-primary-foreground" : "text-muted-foreground/50 group-hover:text-primary")} />
                         {item.title}
-                      </button>
+                      </Link>
                     );
-                  }
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={(e) => handleNavigation(e, item.href)}
-                      className={cn(
-                        "group flex items-center rounded-xl px-4 py-2.5 text-sm font-bold transition-all hover:bg-muted/50 hover:text-foreground",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10 hover:bg-primary/90"
-                          : "text-muted-foreground/70"
-                      )}
-                    >
-                      <item.icon className={cn("mr-3 h-4 w-4 transition-transform group-hover:scale-110", isActive ? "text-primary-foreground" : "text-muted-foreground/50 group-hover:text-primary")} />
-                      {item.title}
-                    </Link>
-                  );
-                })}
+                  })}
+                </div>
               </div>
-            </div>
-            
-            <Separator className="my-6 opacity-30 mx-4" />
-            
-            <div className="space-y-1 py-2">
-              <h2 className="mb-3 px-4 text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase opacity-40">
-                Management
-              </h2>
-              <div className="space-y-1">
-                {SECONDARY_NAVIGATION.map((item) => {
-                  const isActive = pathname === item.href || (item.href === "/automation" && pathname === "/workflows");
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={(e) => handleNavigation(e, item.href)}
-                      className={cn(
-                        "group flex items-center rounded-xl px-4 py-2.5 text-sm font-bold transition-all hover:bg-muted/50 hover:text-foreground",
-                        isActive
-                          ? "bg-muted text-foreground shadow-sm"
-                          : "text-muted-foreground/70"
-                      )}
-                    >
-                      <item.icon className={cn("mr-3 h-4 w-4 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/50 group-hover:text-primary")} />
-                      {item.title}
-                      {!isProUser && (
-                        <span className="ml-auto text-[8px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                          PRO
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+            ))}
           </ScrollArea>
           
-          <div className="mt-auto px-6 py-4">
-            <button 
+          <div className="mt-auto px-6 py-4 space-y-3">
+            <div
               onClick={() => {
                 if (isProUser) {
                   notify("You are already on the Pro plan!");
@@ -277,16 +287,21 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
                   setUpgradeStep("idle");
                   setShowUpgradeModal(true);
                 }
-              }} 
-              className={cn("text-xs font-black uppercase tracking-wider transition-colors flex items-center gap-1.5", 
-                isProUser 
-                  ? "text-emerald-500 hover:text-emerald-600" 
-                  : "text-muted-foreground hover:text-primary"
-              )}
+              }}
+              className="group cursor-pointer flex items-center gap-3 rounded-xl border border-border/30 bg-gradient-to-r from-primary/5 to-transparent px-4 py-3 transition-all hover:border-primary/30 hover:from-primary/10"
             >
-              <Zap className={cn("h-4 w-4", isProUser ? "text-emerald-500" : "text-amber-500")} />
-              {isProUser ? "Setra Pro Active" : "Upgrade to Pro"}
-            </button>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Zap className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-foreground">
+                  {isProUser ? "Setra Pro Active" : "Upgrade to Pro"}
+                </p>
+                <p className="text-[9px] font-semibold text-muted-foreground/60">
+                  {isProUser ? "All features unlocked" : "Unlock AI automation"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
