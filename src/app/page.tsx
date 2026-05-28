@@ -25,7 +25,6 @@ import {
   ScanLine,
   Download,
   Camera,
-  ArrowRightLeft,
   ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -453,14 +452,6 @@ export default function Page() {
           >
             <Send className="h-4.5 w-4.5" />
             Send
-          </Button>
-          <Button 
-            onClick={() => router.push('/bridge')}
-            variant="outline"
-            className="flex-1 h-12 rounded-xl border-border bg-card text-foreground font-black uppercase tracking-wider text-xs shadow-sm hover:bg-muted hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
-          >
-            <ArrowRightLeft className="h-4.5 w-4.5 text-primary" />
-            Bridge
           </Button>
           <Button 
             onClick={() => router.push('/invoices?create=true')}
