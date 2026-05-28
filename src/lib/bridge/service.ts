@@ -1,11 +1,8 @@
 import { BridgeKit, type BridgeChainIdentifier } from "@circle-fin/bridge-kit";
 import { createAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
 import type { ChainDefinition } from "@circle-fin/bridge-kit";
+import { privateKeyToAddress } from "viem/accounts";
 import type { Hex } from "viem";
-
-let kitInstance: BridgeKit | null = null;
-let adapterInstance: ReturnType<typeof createAdapterFromPrivateKey> | null = null;
-let chainsCache: ChainDefinition[] | null = null;
 
 function getPrivateKey(): Hex {
   const pk = process.env.BRIDGE_PRIVATE_KEY;
@@ -13,33 +10,20 @@ function getPrivateKey(): Hex {
   return (pk.startsWith("0x") ? pk : `0x${pk}`) as Hex;
 }
 
-function ensureKit() {
-  if (kitInstance && adapterInstance) return { kit: kitInstance, adapter: adapterInstance };
+function createKit() {
   const privateKey = getPrivateKey();
   const adapter = createAdapterFromPrivateKey({ privateKey });
   const kit = new BridgeKit();
-  kitInstance = kit;
-  adapterInstance = adapter;
-  return { kit, adapter };
-}
-
-function ensureChains(): ChainDefinition[] {
-  if (chainsCache) return chainsCache;
-  const { kit } = ensureKit();
-  chainsCache = kit.getSupportedChains();
-  return chainsCache;
+  const chains = kit.getSupportedChains();
+  return { kit, adapter, chains };
 }
 
 export function getSupportedChains(options?: { isTestnet?: boolean }) {
-  const all = ensureChains();
+  const { chains } = createKit();
   if (options?.isTestnet !== undefined) {
-    return all.filter((c) => c.isTestnet === options.isTestnet);
+    return chains.filter((c) => c.isTestnet === options.isTestnet);
   }
-  return all;
-}
-
-export function getChainByEnum(chainEnum: string): ChainDefinition | undefined {
-  return ensureChains().find((c) => c.chain === chainEnum);
+  return chains;
 }
 
 export interface BridgeEstimateParams {
@@ -56,9 +40,9 @@ export interface BridgeExecuteParams {
 }
 
 export async function estimateBridge(params: BridgeEstimateParams) {
-  const { kit, adapter } = ensureKit();
-  const fromChain = getChainByEnum(params.fromChain);
-  const toChain = getChainByEnum(params.toChain);
+  const { kit, adapter, chains } = createKit();
+  const fromChain = chains.find((c) => c.chain === params.fromChain) as ChainDefinition | undefined;
+  const toChain = chains.find((c) => c.chain === params.toChain) as ChainDefinition | undefined;
   if (!fromChain || !toChain) {
     throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
   }
@@ -70,9 +54,9 @@ export async function estimateBridge(params: BridgeEstimateParams) {
 }
 
 export async function executeBridge(params: BridgeExecuteParams) {
-  const { kit, adapter } = ensureKit();
-  const fromChain = getChainByEnum(params.fromChain);
-  const toChain = getChainByEnum(params.toChain);
+  const { kit, adapter, chains } = createKit();
+  const fromChain = chains.find((c) => c.chain === params.fromChain) as ChainDefinition | undefined;
+  const toChain = chains.find((c) => c.chain === params.toChain) as ChainDefinition | undefined;
   if (!fromChain || !toChain) {
     throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
   }
@@ -99,7 +83,6 @@ export async function sendToBridgeEOA(
 }
 
 export function getBridgeAddress(): string {
-  const { privateKeyToAddress } = require("viem/accounts");
   const pk = getPrivateKey();
   return privateKeyToAddress(pk);
 }

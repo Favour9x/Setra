@@ -65,9 +65,11 @@ export default function Page() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
-  const [chainBalances, setChainBalances] = useState<Array<{ blockchain: string; chainName: string; usdcBalance: number; isTestnet: boolean }>>([]);
+  const [chainBalances, setChainBalances] = useState<Array<{ blockchain: string; chainName: string; usdcBalance: number; isTestnet: boolean; walletAddress?: string }>>([]);
   const [gatewayTotal, setGatewayTotal] = useState<number | null>(null);
-  const [showChainDetails, setShowChainDetails] = useState(false);
+  const [showChainDetails, setShowChainDetails] = useState(true);
+  const [txFilter, setTxFilter] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
+  const [copiedChain, setCopiedChain] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const userInitial = profile.firstName?.[0] || user?.email?.[0]?.toUpperCase() || "U";
@@ -377,7 +379,7 @@ export default function Page() {
         )}
       </div>
 
-      {/* Chain Balances */}
+      {/* Chain Wallets */}
       {chainBalances.length > 0 && (
         <div className="w-full max-w-xl mx-auto">
           <button
@@ -386,27 +388,51 @@ export default function Page() {
           >
             <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <Wallet className="h-3 w-3" />
-              Balances by Chain
+              Chain Wallets
             </span>
             <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showChainDetails ? 'rotate-180' : ''}`} />
           </button>
           {showChainDetails && (
-            <div className="mt-2 p-3 rounded-xl bg-muted/20 border border-border/20 space-y-1.5">
+            <div className="mt-2 rounded-xl bg-muted/20 border border-border/20 divide-y divide-border/20">
               {chainBalances.map((cb) => (
-                <div key={cb.blockchain} className="flex items-center justify-between py-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium">{cb.chainName}</span>
-                    {cb.isTestnet && (
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded">T</span>
+                <div key={cb.blockchain} className="px-3 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold">{cb.chainName}</span>
+                      {cb.isTestnet && (
+                        <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded">T</span>
+                      )}
+                    </div>
+                    <span className="text-xs font-black">
+                      ${cb.usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[9px] font-mono text-muted-foreground truncate max-w-[200px]">
+                      {cb.walletAddress ? `${cb.walletAddress.substring(0, 10)}...${cb.walletAddress.substring(cb.walletAddress.length - 6)}` : "No address"}
+                    </span>
+                    {cb.walletAddress && (
+                      <button
+                        onClick={() => {
+                          if (!cb.walletAddress) return;
+                          navigator.clipboard.writeText(cb.walletAddress);
+                          setCopiedChain(cb.blockchain);
+                          setTimeout(() => setCopiedChain(null), 2000);
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        {copiedChain === cb.blockchain ? (
+                          <CheckIcon className="h-3 w-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground transition-colors" />
+                        )}
+                      </button>
                     )}
                   </div>
-                  <span className="text-xs font-bold">
-                    ${cb.usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
                 </div>
               ))}
               {gatewayTotal !== null && (
-                <div className="flex items-center justify-between py-1.5 border-t border-border/20 mt-1 pt-2">
+                <div className="flex items-center justify-between px-3 py-2.5">
                   <span className="text-xs font-bold text-primary">Gateway Unified</span>
                   <span className="text-xs font-bold text-primary">
                     ${gatewayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -462,62 +488,85 @@ export default function Page() {
                 </Button>
               </Link>
             </div>
+            {/* Filter Pills */}
+            <div className="flex gap-2 mt-4">
+              {(["ALL", "INCOME", "EXPENSE"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setTxFilter(f)}
+                  className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full transition-all ${
+                    txFilter === f
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {f === "ALL" ? "All" : f === "INCOME" ? "Received" : "Sent"}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border/30">
               {!isLoaded ? (
                 Array.from({ length: 5 }).map((_, i) => <TransactionSkeleton key={i} />)
-              ) : transactions.length > 0 ? (
-                transactions.slice(0, 5).map((tx) => (
-                  <div 
-                    key={tx.id} 
-                    onClick={() => setSelectedTx(tx)}
-                    className="flex items-center justify-between p-5 hover:bg-muted/30 transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center font-black text-foreground/40 group-hover:bg-primary/10 group-hover:text-primary transition-colors overflow-hidden flex-shrink-0">
-                        {tx.avatar && (tx.avatar.startsWith("http") || tx.avatar.startsWith("data:image")) ? (
-                          <img src={tx.avatar} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
-                        ) : (
-                          tx.avatar || tx.name.substring(0, 2).toUpperCase()
-                        )}
+              ) : (() => {
+                const filtered = txFilter === "ALL"
+                  ? transactions
+                  : transactions.filter(tx =>
+                      txFilter === "INCOME" ? tx.type === "income" : tx.type === "expense"
+                    );
+                return filtered.length > 0 ? (
+                  filtered.slice(0, 5).map((tx) => (
+                    <div 
+                      key={tx.id} 
+                      onClick={() => setSelectedTx(tx)}
+                      className="flex items-center justify-between p-5 hover:bg-muted/30 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center font-black text-foreground/40 group-hover:bg-primary/10 group-hover:text-primary transition-colors overflow-hidden flex-shrink-0">
+                          {tx.avatar && (tx.avatar.startsWith("http") || tx.avatar.startsWith("data:image")) ? (
+                            <img src={tx.avatar} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
+                          ) : (
+                            tx.avatar || tx.name.substring(0, 2).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-foreground leading-tight group-hover:text-primary transition-colors truncate">
+                            {tx.recipientUsername ? `@${tx.recipientUsername}` : formatAddress(tx.recipientAddress || tx.name)}
+                          </p>
+                          <p className="text-[10px] font-black text-muted-foreground/60 mt-1 uppercase tracking-[0.1em] flex items-center gap-1 flex-wrap">
+                             {tx.recipientUsername && tx.recipientAddress && (
+                               <span className="text-primary font-mono tracking-normal lowercase">{formatAddress(tx.recipientAddress)} •</span>
+                             )}
+                            {tx.category} • {new Date(tx.timestamp).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-foreground leading-tight group-hover:text-primary transition-colors truncate">
-                          {tx.recipientUsername ? `@${tx.recipientUsername}` : formatAddress(tx.recipientAddress || tx.name)}
+                      <div className="text-right flex-shrink-0 ml-4">
+                        <p className={`text-sm font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-foreground'}`}>
+                          {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                        <p className="text-[10px] font-black text-muted-foreground/60 mt-1 uppercase tracking-[0.1em] flex items-center gap-1 flex-wrap">
-                           {tx.recipientUsername && tx.recipientAddress && (
-                             <span className="text-primary font-mono tracking-normal lowercase">{formatAddress(tx.recipientAddress)} •</span>
-                           )}
-                          {tx.category} • {new Date(tx.timestamp).toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true
-                          })}
-                        </p>
+                        <div className="flex justify-end mt-1">
+                          <div className={`h-1.5 w-1.5 rounded-full ${tx.status === 'success' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 ml-4">
-                      <p className={`text-sm font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-foreground'}`}>
-                        {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <div className="flex justify-end mt-1">
-                        <div className={`h-1.5 w-1.5 rounded-full ${tx.status === 'success' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <EmptyState 
-                  icon={History}
-                  title="No Transactions"
-                  description="Your financial footprint begins with your first payment."
-                />
-              )}
+                  ))
+                ) : (
+                  <EmptyState 
+                    icon={History}
+                    title={txFilter === "INCOME" ? "No Received Payments" : txFilter === "EXPENSE" ? "No Sent Payments" : "No Transactions"}
+                    description={txFilter === "INCOME" ? "Payments sent to you will appear here." : txFilter === "EXPENSE" ? "Your sent payments will appear here." : "Your financial footprint begins with your first payment."}
+                  />
+                );
+              })()}
             </div>
           </CardContent>
         </Card>

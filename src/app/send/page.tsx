@@ -29,6 +29,7 @@ function SendPageContent() {
   const [category, setCategory] = useState("Transfer");
   const [blockchain, setBlockchain] = useState("ARC-TESTNET");
   const [completed, setCompleted] = useState(false);
+  const [chainBalances, setChainBalances] = useState<Record<string, number>>({});
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -55,6 +56,25 @@ function SendPageContent() {
     if (savedAmount) setAmount(savedAmount);
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
+
+  // Fetch per-chain balances on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/wallet/chain-balances");
+        const data = await res.json();
+        if (data.chains) {
+          const map: Record<string, number> = {};
+          for (const c of data.chains) {
+            map[c.blockchain] = c.usdcBalance;
+          }
+          setChainBalances(map);
+        }
+      } catch {
+        // silent
+      }
+    })();
+  }, []);
 
   // Cleanup scanner on unmount
   useEffect(() => {
@@ -159,13 +179,16 @@ function SendPageContent() {
       return;
     }
 
-    if (balance === null) {
+    const chainBalance = chainBalances[blockchain];
+    const effectiveBalance = chainBalance ?? balance;
+
+    if (effectiveBalance === null || effectiveBalance === undefined) {
       notify("Balance is loading. Please wait a moment.");
       return;
     }
 
-    if (numAmount > balance) {
-      notify("Insufficient balance for this transaction");
+    if (numAmount > effectiveBalance) {
+      notify(`Insufficient balance on ${blockchain.replace("-", " ")} for this transaction`);
       return;
     }
 
@@ -350,9 +373,15 @@ function SendPageContent() {
           <Card className="border-none shadow-premium bg-primary text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <CardContent className="p-8 relative z-10">
-              <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] mb-2">Available Balance</p>
+              <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] mb-2">
+                Balance on {blockchain.replace(/-/g, " ")}
+              </p>
               <h2 className="text-4xl font-extrabold tracking-tight">
-                {balance !== null ? `$${balance.toLocaleString()}` : "Loading..."}
+                {chainBalances[blockchain] !== undefined
+                  ? `$${chainBalances[blockchain].toLocaleString()}`
+                  : balance !== null
+                    ? `$${balance.toLocaleString()}`
+                    : "Loading..."}
               </h2>
               <div className="mt-12 flex justify-between items-center text-white/80">
                 <div className="flex gap-2 items-center">

@@ -5,7 +5,7 @@ const BLOCKCHAIN_TO_CIRCLE: Record<string, string> = {
   Ethereum_Sepolia: "ETH-SEPOLIA",
   Arbitrum_Sepolia: "ARB-SEPOLIA",
   Base_Sepolia: "BASE-SEPOLIA",
-  Polygon_Amoy: "MATIC-AMOY",
+  Polygon_Amoy_Testnet: "MATIC-AMOY",
   Arc_Testnet: "ARC-TESTNET",
 };
 
