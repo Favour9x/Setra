@@ -5,48 +5,48 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from "@/components/ui/select";
 import { useNotify } from "@/components/ui/notification";
-import { ArrowLeft, Loader2, ArrowRightLeft, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, ArrowRightLeft, CheckCircle2, AlertCircle, RefreshCw, Info } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
-const CHAIN_NAMES: Record<string, string> = {
-  "EVM:ARBITRUM_SEPOLIA": "Arbitrum Sepolia",
-  "EVM:AVALANCHE_FUJI": "Avalanche Fuji",
-  "EVM:ETHEREUM_SEPOLIA": "Ethereum Sepolia",
-  "EVM:BASE_SEPOLIA": "Base Sepolia",
-  "EVM:OPTIMISM_SEPOLIA": "OP Sepolia",
-  "EVM:UNICHAIN_SEPOLIA": "Unichain Sepolia",
-  "EVM:POLYGON_AMOY": "Polygon Amoy",
-  "SOL:DEVNET": "Solana Devnet",
-  "SOL:MAINNET": "Solana Mainnet",
-  "APT:TESTNET": "Aptos Testnet",
+const CHAIN_COLORS: Record<string, string> = {
+  evm: "bg-indigo-500",
+  solana: "bg-orange-500",
+  aptos: "bg-cyan-500",
 };
 
-const CHAIN_SHORT: Record<string, string> = {
-  "EVM:ARBITRUM_SEPOLIA": "Arb",
-  "EVM:AVALANCHE_FUJI": "Avax",
-  "EVM:ETHEREUM_SEPOLIA": "Eth",
-  "EVM:BASE_SEPOLIA": "Base",
-  "EVM:OPTIMISM_SEPOLIA": "OP",
-  "EVM:UNICHAIN_SEPOLIA": "Uni",
-  "EVM:POLYGON_AMOY": "Poly",
-  "SOL:DEVNET": "Sol",
-  "SOL:MAINNET": "Sol",
-  "APT:TESTNET": "Apt",
-};
+function getChainColor(type: string): string {
+  return CHAIN_COLORS[type] || "bg-gray-500";
+}
 
-function getChainColor(chain: string): string {
-  if (chain.startsWith("SOL")) return "bg-orange-500";
-  if (chain.startsWith("APT")) return "bg-cyan-500";
-  return "bg-indigo-500";
+function formatChainId(chain: string): string {
+  if (chain.startsWith("Ethereum_")) return "Eth";
+  if (chain.startsWith("Arbitrum_")) return "Arb";
+  if (chain.startsWith("Avalanche_")) return "Avax";
+  if (chain.startsWith("Base_")) return "Base";
+  if (chain.startsWith("Optimism_")) return "OP";
+  if (chain.startsWith("Polygon_")) return "Poly";
+  if (chain.startsWith("Unichain_")) return "Uni";
+  if (chain.startsWith("Solana")) return "Sol";
+  if (chain.startsWith("Aptos")) return "Apt";
+  return chain.slice(0, 4);
+}
+
+interface ChainInfo {
+  chain: string;
+  name: string;
+  title: string;
+  isTestnet: boolean;
+  type: string;
 }
 
 function BridgePageContent() {
   const { notify } = useNotify();
-  const [chains, setChains] = useState<string[]>([]);
+  const [chains, setChains] = useState<ChainInfo[]>([]);
   const [chainsLoading, setChainsLoading] = useState(true);
+  const [bridgeAddress, setBridgeAddress] = useState<string | null>(null);
   const [sourceChain, setSourceChain] = useState("");
   const [destChain, setDestChain] = useState("");
   const [amount, setAmount] = useState("");
@@ -59,16 +59,24 @@ function BridgePageContent() {
   const [bridgeError, setBridgeError] = useState("");
 
   useEffect(() => {
-    fetch("/api/bridge/supported-chains")
-      .then((r) => r.json())
-      .then((data) => {
-        const chainIds = (data.chains || []).map((c: any) => c.chain || c.id || c);
-        setChains(chainIds);
-      })
-      .catch((err) => {
+    (async () => {
+      try {
+        const [chainsRes, addrRes] = await Promise.all([
+          fetch("/api/bridge/supported-chains"),
+          fetch("/api/bridge/address"),
+        ]);
+        const chainsData = await chainsRes.json();
+        setChains(chainsData.chains || []);
+        if (addrRes.ok) {
+          const addrData = await addrRes.json();
+          setBridgeAddress(addrData.address);
+        }
+      } catch {
         notify("Failed to load supported chains");
-      })
-      .finally(() => setChainsLoading(false));
+      } finally {
+        setChainsLoading(false);
+      }
+    })();
   }, [notify]);
 
   useEffect(() => {
@@ -77,6 +85,59 @@ function BridgePageContent() {
     setBridgeResult(null);
     setBridgeError("");
   }, [sourceChain, destChain, amount]);
+
+  const mainnetChains = chains.filter((c) => !c.isTestnet);
+  const testnetChains = chains.filter((c) => c.isTestnet);
+
+  const sourceObj = chains.find((c) => c.chain === sourceChain);
+  const destObj = chains.find((c) => c.chain === destChain);
+
+  const getChainNode = (c: ChainInfo) => (
+    <span className="flex items-center gap-2">
+      <span className={`w-2 h-2 rounded-full ${getChainColor(c.type)}`} />
+      {c.name}
+      {c.isTestnet && <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded ml-auto">Testnet</span>}
+    </span>
+  );
+
+  const renderChainOptions = (excludeChain: string) =>
+    chains
+      .filter((c) => c.chain !== excludeChain)
+      .map((c) => (
+        <SelectItem key={c.chain} value={c.chain}>
+          {getChainNode(c)}
+        </SelectItem>
+      ));
+
+  const renderGroupedChainOptions = (excludeChain: string) => {
+    const mainnets = chains.filter((c) => !c.isTestnet && c.chain !== excludeChain);
+    const testnets = chains.filter((c) => c.isTestnet && c.chain !== excludeChain);
+    const items: React.ReactNode[] = [];
+
+    if (mainnets.length > 0) {
+      items.push(<SelectGroup key="mainnet-group">
+        <SelectLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Mainnets</SelectLabel>
+        {mainnets.map((c) => (
+          <SelectItem key={c.chain} value={c.chain}>{getChainNode(c)}</SelectItem>
+        ))}
+      </SelectGroup>);
+    }
+
+    if (mainnets.length > 0 && testnets.length > 0) {
+      items.push(<SelectSeparator key="sep" />);
+    }
+
+    if (testnets.length > 0) {
+      items.push(<SelectGroup key="testnet-group">
+        <SelectLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Testnets</SelectLabel>
+        {testnets.map((c) => (
+          <SelectItem key={c.chain} value={c.chain}>{getChainNode(c)}</SelectItem>
+        ))}
+      </SelectGroup>);
+    }
+
+    return items;
+  };
 
   const handleEstimate = async () => {
     if (!sourceChain || !destChain || !amount) return;
@@ -137,17 +198,6 @@ function BridgePageContent() {
   const hasEstimate = estimate !== null;
   const isValid = sourceChain && destChain && sourceChain !== destChain && amount && parseFloat(amount) > 0;
 
-  const chainOptions = chains
-    .filter((c) => c !== sourceChain)
-    .map((c) => (
-      <SelectItem key={c} value={c}>
-        <span className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${getChainColor(c)}`} />
-          {CHAIN_NAMES[c] || c}
-        </span>
-      </SelectItem>
-    ));
-
   return (
     <div className="space-y-8 pb-12 px-4 md:px-6">
       <div className="flex items-center gap-4">
@@ -163,6 +213,21 @@ function BridgePageContent() {
 
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="lg:col-span-7 space-y-8">
+          {bridgeAddress && (
+            <Card className="border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 overflow-hidden">
+              <CardContent className="p-4 flex items-start gap-3 text-sm">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Bridge Wallet Address</p>
+                  <p className="text-amber-700 dark:text-amber-400 font-mono text-xs break-all">{bridgeAddress}</p>
+                  <p className="text-amber-600 dark:text-amber-500 mt-1 text-xs">
+                    Fund this wallet with USDC on the source chain before bridging. The bridge wallet is separate from your Circle wallet.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-none shadow-premium bg-card overflow-hidden">
             <CardHeader className="p-8 pb-4">
               <CardTitle className="text-xl flex items-center gap-2">
@@ -188,11 +253,11 @@ function BridgePageContent() {
                   <div className="mt-6 p-4 bg-muted/50 rounded-xl text-left w-full max-w-sm space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">From</span>
-                      <span className="font-medium">{CHAIN_NAMES[sourceChain] || sourceChain}</span>
+                      <span className="font-medium">{sourceObj?.name || sourceChain}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">To</span>
-                      <span className="font-medium">{CHAIN_NAMES[destChain] || destChain}</span>
+                      <span className="font-medium">{destObj?.name || destChain}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Amount</span>
@@ -233,24 +298,22 @@ function BridgePageContent() {
                         <SelectTrigger className="h-12 bg-muted/30 border-none rounded-xl focus-visible:ring-primary/20">
                           {chainsLoading ? (
                             <span className="text-muted-foreground">Loading...</span>
+                          ) : sourceObj ? (
+                            <span className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${getChainColor(sourceObj.type)}`} />
+                              {sourceObj.name}
+                            </span>
                           ) : (
                             <SelectValue placeholder="Select source" />
                           )}
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white dark:bg-slate-800 border border-border shadow-xl rounded-xl">
                           {chains.length === 0 && !chainsLoading && (
                             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                               No chains available
                             </div>
                           )}
-                          {chains.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              <span className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${getChainColor(c)}`} />
-                                {CHAIN_NAMES[c] || c}
-                              </span>
-                            </SelectItem>
-                          ))}
+                          {renderGroupedChainOptions(destChain)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -267,17 +330,22 @@ function BridgePageContent() {
                         <SelectTrigger className="h-12 bg-muted/30 border-none rounded-xl focus-visible:ring-primary/20">
                           {chainsLoading ? (
                             <span className="text-muted-foreground">Loading...</span>
+                          ) : destObj ? (
+                            <span className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${getChainColor(destObj.type)}`} />
+                              {destObj.name}
+                            </span>
                           ) : (
                             <SelectValue placeholder="Select destination" />
                           )}
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white dark:bg-slate-800 border border-border shadow-xl rounded-xl">
                           {chains.length === 0 && !chainsLoading && (
                             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                               No chains available
                             </div>
                           )}
-                          {chainOptions}
+                          {renderGroupedChainOptions(sourceChain)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -374,15 +442,15 @@ function BridgePageContent() {
                   <div className="flex justify-between items-center py-2 border-b border-border/50">
                     <span className="text-muted-foreground">Source</span>
                     <span className="font-medium flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${getChainColor(sourceChain)}`} />
-                      {CHAIN_SHORT[sourceChain] || sourceChain}
+                      <span className={`w-2 h-2 rounded-full ${sourceObj ? getChainColor(sourceObj.type) : "bg-gray-500"}`} />
+                      {sourceObj ? formatChainId(sourceObj.chain) : sourceChain}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-border/50">
                     <span className="text-muted-foreground">Destination</span>
                     <span className="font-medium flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${getChainColor(destChain)}`} />
-                      {CHAIN_SHORT[destChain] || destChain}
+                      <span className={`w-2 h-2 rounded-full ${destObj ? getChainColor(destObj.type) : "bg-gray-500"}`} />
+                      {destObj ? formatChainId(destObj.chain) : destChain}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-border/50">
@@ -390,8 +458,7 @@ function BridgePageContent() {
                     <span className="font-medium">{parseFloat(amount).toLocaleString()} USDC</span>
                   </div>
 
-                  {/* Gas Fees */}
-                  {estimate.gasFees.length > 0 && (
+                  {estimate.gasFees?.length > 0 && (
                     <div className="pt-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">Gas Fees</p>
                       {estimate.gasFees.map((gf: any, i: number) => (
@@ -405,8 +472,7 @@ function BridgePageContent() {
                     </div>
                   )}
 
-                  {/* Protocol / Service Fees */}
-                  {estimate.fees.length > 0 && (
+                  {estimate.fees?.length > 0 && (
                     <div className="pt-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">Protocol Fees</p>
                       {estimate.fees.map((f: any, i: number) => (

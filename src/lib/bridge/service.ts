@@ -1,10 +1,12 @@
 import { BridgeKit } from "@circle-fin/bridge-kit";
 import { createViemAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
-import type { BridgeChainIdentifier } from "@circle-fin/bridge-kit";
+import { privateKeyToAccount } from "viem/accounts";
+import type { ChainDefinition, BridgeChainIdentifier } from "@circle-fin/bridge-kit";
 import type { Hex } from "viem";
 
 let kitInstance: BridgeKit | null = null;
 let adapterInstance: ReturnType<typeof createViemAdapterFromPrivateKey> | null = null;
+let chainsCache: ChainDefinition[] | null = null;
 
 function getPrivateKey(): Hex {
   const pk =
@@ -25,6 +27,31 @@ function ensureKit() {
   return { kit, adapter };
 }
 
+export function getBridgeWalletAddress(): string {
+  const pk = getPrivateKey();
+  const account = privateKeyToAccount(pk);
+  return account.address;
+}
+
+function ensureChains(): ChainDefinition[] {
+  if (chainsCache) return chainsCache;
+  const { kit } = ensureKit();
+  chainsCache = kit.getSupportedChains();
+  return chainsCache;
+}
+
+export function getSupportedChains(options?: { isTestnet?: boolean }) {
+  const all = ensureChains();
+  if (options?.isTestnet !== undefined) {
+    return all.filter((c) => c.isTestnet === options.isTestnet);
+  }
+  return all;
+}
+
+export function getChainById(chainId: string): ChainDefinition | undefined {
+  return ensureChains().find((c) => c.chain === chainId);
+}
+
 export interface BridgeEstimateParams {
   fromChain: string;
   toChain: string;
@@ -38,27 +65,32 @@ export interface BridgeExecuteParams {
   recipientAddress?: string;
 }
 
-export function getSupportedChains() {
-  const { kit } = ensureKit();
-  return kit.getSupportedChains();
-}
-
 export async function estimateBridge(params: BridgeEstimateParams) {
   const { kit, adapter } = ensureKit();
+  const fromChain = getChainById(params.fromChain);
+  const toChain = getChainById(params.toChain);
+  if (!fromChain || !toChain) {
+    throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
+  }
   return kit.estimate({
-    from: { adapter, chain: params.fromChain as BridgeChainIdentifier },
-    to: { adapter, chain: params.toChain as BridgeChainIdentifier },
+    from: { adapter, chain: fromChain as BridgeChainIdentifier },
+    to: { adapter, chain: toChain as BridgeChainIdentifier },
     amount: params.amount,
   });
 }
 
 export async function executeBridge(params: BridgeExecuteParams) {
   const { kit, adapter } = ensureKit();
+  const fromChain = getChainById(params.fromChain);
+  const toChain = getChainById(params.toChain);
+  if (!fromChain || !toChain) {
+    throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
+  }
   const to = params.recipientAddress
-    ? { adapter, chain: params.toChain as BridgeChainIdentifier, recipientAddress: params.recipientAddress }
-    : { adapter, chain: params.toChain as BridgeChainIdentifier };
+    ? { adapter, chain: toChain as BridgeChainIdentifier, recipientAddress: params.recipientAddress }
+    : { adapter, chain: toChain as BridgeChainIdentifier };
   return kit.bridge({
-    from: { adapter, chain: params.fromChain as BridgeChainIdentifier },
+    from: { adapter, chain: fromChain as BridgeChainIdentifier },
     to,
     amount: params.amount,
   });
