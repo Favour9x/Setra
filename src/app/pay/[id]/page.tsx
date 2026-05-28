@@ -498,7 +498,7 @@ export default function PayPage() {
                     {presets.length > 0 && (
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tip Tiers</Label>
-                        <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {presets.map((p) => (
                             <Button key={p.label} variant={selectedAmount === p.amount ? "default" : "outline"} onClick={() => { setSelectedAmount(p.amount); setCustomAmount(""); }} className="h-16 rounded-xl flex-col gap-0.5 text-xs font-black">
                               <span>{p.label}</span>
@@ -512,7 +512,7 @@ export default function PayPage() {
                     {/* Preset Amounts */}
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Quick Amounts</Label>
-                      <div className="grid grid-cols-5 gap-1.5">
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                         {PRESET_AMOUNTS.map((amt) => (
                           <Button key={amt} variant={selectedAmount === amt ? "default" : "outline"} size="sm" onClick={() => { setSelectedAmount(amt); setCustomAmount(""); }} className="h-9 rounded-lg text-xs font-black">{amt}</Button>
                         ))}

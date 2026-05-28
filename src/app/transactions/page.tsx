@@ -90,7 +90,7 @@ export default async function Page({
   });
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 px-4 md:px-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight text-foreground">Transactions</h1>
         <p className="text-sm text-muted-foreground mt-1">Your confirmed and pending USDC activity on Arc Testnet.</p>
@@ -135,14 +135,13 @@ export default async function Page({
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-muted-foreground">No transactions match this filter.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[600px] divide-y divide-border/60">
+            <div className="divide-y divide-border/60">
                 {filtered.map((tx) => (
-                  <div key={tx.id} className="grid gap-3 py-4 grid-cols-[1fr_auto_auto_auto] items-center">
-                    <div>
+                  <div key={tx.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_auto_auto] gap-2 sm:gap-3 py-4 sm:items-center">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground">
-                          {tx.type === "received" ? "Received" : "Sent"} {tx.amount.toLocaleString()} USDC
+                        <span className="font-semibold text-foreground text-sm sm:text-base">
+                          {tx.type === "received" ? "Received" : "Sent"}
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                           tx.status === "confirmed"
@@ -154,10 +153,10 @@ export default async function Page({
                           {tx.status}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">Recipient: {formatAddress(tx.recipientAddress)}</p>
+                      <p className="text-xs text-muted-foreground break-all">Recipient: {formatAddress(tx.recipientAddress)}</p>
                     </div>
 
-                    <div className="text-xs text-muted-foreground px-4">
+                    <div className="text-xs text-muted-foreground sm:px-4">
                       {new Date(tx.createdAt).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -168,7 +167,7 @@ export default async function Page({
                       })}
                     </div>
 
-                    <div className={`text-sm font-bold px-4 ${tx.type === "received" ? "text-emerald-600" : "text-foreground"}`}>
+                    <div className={`text-sm font-bold sm:px-4 ${tx.type === "received" ? "text-emerald-600" : "text-foreground"}`}>
                       {tx.type === "received" ? "+" : "-"}{tx.amount.toLocaleString()} USDC
                     </div>
 
@@ -189,7 +188,6 @@ export default async function Page({
                   </div>
                 ))}
               </div>
-            </div>
           )}
         </CardContent>
       </Card>

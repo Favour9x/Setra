@@ -213,7 +213,7 @@ function SendPageContent() {
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 px-4 md:px-6">
       <div className="flex items-center gap-4">
         <Link href="/">
           <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted">

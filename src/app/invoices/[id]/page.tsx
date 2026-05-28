@@ -122,7 +122,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   const isRecipient = invoice.type === "received";
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-12">
+    <div className="max-w-3xl mx-auto space-y-8 pb-12 px-4 md:px-6">
       <div>
         <Link href="/invoices" className="inline-flex items-center text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors gap-2">
           <ArrowLeft className="h-4 w-4" /> Back to Ledger

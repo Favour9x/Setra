@@ -248,7 +248,7 @@ export default function TipsDashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-10 pb-12 relative">
+    <div className="space-y-10 pb-12 px-4 md:px-6 relative">
         <p className="text-secondary font-black text-[10px] uppercase tracking-[0.4em] mb-3">Creator Tools</p>
         <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase leading-none">Tips</h1>
         <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
@@ -618,7 +618,7 @@ export default function TipsDashboardPage() {
                   </div>
                   <Separator />
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tip Tiers (Optional)</p>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Bronze ($)</Label>
                       <Input type="number" placeholder="5" value={createBronze} onChange={(e) => setCreateBronze(e.target.value)} className="h-10 rounded-xl bg-muted/30 border-none text-xs font-semibold" disabled={creating} />
@@ -691,7 +691,7 @@ export default function TipsDashboardPage() {
                   <p className="text-[10px] text-muted-foreground/60">Raised so far: <span className="font-bold text-foreground">${(page?.raised_amount || 0).toLocaleString()}</span></p>
                   <Separator />
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tip Tiers</p>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Bronze ($)</Label>
                       <Input type="number" placeholder="5" value={editBronze} onChange={(e) => setEditBronze(e.target.value)} className="h-10 rounded-xl bg-muted/30 border-none text-xs font-semibold" />

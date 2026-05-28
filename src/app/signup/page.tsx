@@ -32,8 +32,11 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
+    const { normalizeEmail } = await import("@/lib/normalize-email");
+    const normalizedEmail = normalizeEmail(email);
+
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: undefined,

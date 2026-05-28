@@ -149,7 +149,7 @@ function BridgePageContent() {
     ));
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 px-4 md:px-6">
       <div className="flex items-center gap-4">
         <Link href="/">
           <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted">
@@ -315,14 +315,14 @@ function BridgePageContent() {
                   </div>
 
                   {estimateError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-sm text-red-700">
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-2 text-sm text-destructive">
                       <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                       <span>{estimateError}</span>
                     </div>
                   )}
 
                   {bridgeError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-sm text-red-700">
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-2 text-sm text-destructive">
                       <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                       <span>{bridgeError}</span>
                     </div>
