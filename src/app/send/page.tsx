@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFinancial } from "@/context/FinancialContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotify } from "@/components/ui/notification";
-import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X } from "lucide-react";
+import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, Network } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { RecipientInput } from "@/components/ui/RecipientInput";
@@ -26,6 +27,7 @@ function SendPageContent() {
   const [isValidRecipient, setIsValidRecipient] = useState(false);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Transfer");
+  const [blockchain, setBlockchain] = useState("ARC-TESTNET");
   const [completed, setCompleted] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
@@ -169,26 +171,28 @@ function SendPageContent() {
 
     setLoading(true);
     try {
-      // Get user's wallet ID from Supabase
-      const { profile } = await fetch('/api/user/profile', { credentials: 'include' }).then(r => r.json());
-      
-      if (!profile?.wallet_id) {
+      const profileRes = await fetch('/api/user/profile', { credentials: 'include' });
+      const profileData = await profileRes.json();
+      const profile = profileData.profile;
+
+      const walletId = profile?.wallet_id;
+      if (!walletId) {
         notify("Wallet not found. Please contact support.");
         setLoading(false);
         return;
       }
 
-      // Send payment via Circle
       const response = await fetch('/api/payments/send', {
         credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletId: profile.wallet_id,
+          walletId,
           toAddress: recipient,
           amount: amount,
           userId: user.id,
           category: category,
+          blockchain,
         }),
       });
 
@@ -253,6 +257,24 @@ function SendPageContent() {
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+                  <div className="space-y-2 p-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
+                      Blockchain
+                    </Label>
+                    <Select value={blockchain} onValueChange={setBlockchain} disabled={loading}>
+                      <SelectTrigger className="h-12 bg-muted/30 border-none rounded-xl focus-visible:ring-primary/20">
+                        <SelectValue placeholder="Select blockchain" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-slate-800 border border-border shadow-xl rounded-xl">
+                        <SelectItem value="ARC-TESTNET">Arc Testnet</SelectItem>
+                        <SelectItem value="ETH-SEPOLIA">Ethereum Sepolia</SelectItem>
+                        <SelectItem value="BASE-SEPOLIA">Base Sepolia</SelectItem>
+                        <SelectItem value="MATIC-AMOY">Polygon Amoy</SelectItem>
+                        <SelectItem value="ARB-SEPOLIA">Arbitrum Sepolia</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2 p-1">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
                       Recipient

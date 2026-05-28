@@ -24,7 +24,9 @@ import {
   X,
   ScanLine,
   Download,
-  Camera
+  Camera,
+  ArrowRightLeft,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useFinancial } from "@/context/FinancialContext";
@@ -63,6 +65,9 @@ export default function Page() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
+  const [chainBalances, setChainBalances] = useState<Array<{ blockchain: string; chainName: string; usdcBalance: number; isTestnet: boolean }>>([]);
+  const [gatewayTotal, setGatewayTotal] = useState<number | null>(null);
+  const [showChainDetails, setShowChainDetails] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const userInitial = profile.firstName?.[0] || user?.email?.[0]?.toUpperCase() || "U";
@@ -79,6 +84,30 @@ export default function Page() {
       refreshBalance();
     }
   }, [walletAddress, isLoaded]);
+
+  // Fetch chain balances
+  useEffect(() => {
+    if (!isLoaded || !walletAddress) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/wallet/chain-balances");
+        const data = await res.json();
+        if (data.chains) setChainBalances(data.chains);
+      } catch {}
+    })();
+  }, [isLoaded, walletAddress]);
+
+  // Fetch Gateway unified balance
+  useEffect(() => {
+    if (!isLoaded || !walletAddress) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/gateway/balance");
+        const data = await res.json();
+        if (data.success) setGatewayTotal(data.total);
+      } catch {}
+    })();
+  }, [isLoaded, walletAddress]);
 
   // Close notifications dropdown on click outside
   useEffect(() => {
@@ -348,6 +377,47 @@ export default function Page() {
         )}
       </div>
 
+      {/* Chain Balances */}
+      {chainBalances.length > 0 && (
+        <div className="w-full max-w-xl mx-auto">
+          <button
+            onClick={() => setShowChainDetails(!showChainDetails)}
+            className="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all border border-border/20"
+          >
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Wallet className="h-3 w-3" />
+              Balances by Chain
+            </span>
+            <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showChainDetails ? 'rotate-180' : ''}`} />
+          </button>
+          {showChainDetails && (
+            <div className="mt-2 p-3 rounded-xl bg-muted/20 border border-border/20 space-y-1.5">
+              {chainBalances.map((cb) => (
+                <div key={cb.blockchain} className="flex items-center justify-between py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">{cb.chainName}</span>
+                    {cb.isTestnet && (
+                      <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded">T</span>
+                    )}
+                  </div>
+                  <span className="text-xs font-bold">
+                    ${cb.usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+              {gatewayTotal !== null && (
+                <div className="flex items-center justify-between py-1.5 border-t border-border/20 mt-1 pt-2">
+                  <span className="text-xs font-bold text-primary">Gateway Unified</span>
+                  <span className="text-xs font-bold text-primary">
+                    ${gatewayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 3. Side-by-Side Quick Action Buttons */}
       <div className="w-full max-w-xl mx-auto">
         <div className="flex flex-col sm:flex-row gap-3">
@@ -356,7 +426,15 @@ export default function Page() {
             className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs shadow-md shadow-primary/10 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 border-none"
           >
             <Send className="h-4.5 w-4.5" />
-            Send Payment
+            Send
+          </Button>
+          <Button 
+            onClick={() => router.push('/bridge')}
+            variant="outline"
+            className="flex-1 h-12 rounded-xl border-border bg-card text-foreground font-black uppercase tracking-wider text-xs shadow-sm hover:bg-muted hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowRightLeft className="h-4.5 w-4.5 text-primary" />
+            Bridge
           </Button>
           <Button 
             onClick={() => router.push('/invoices?create=true')}
@@ -364,7 +442,7 @@ export default function Page() {
             className="flex-1 h-12 rounded-xl border-border bg-card text-foreground font-black uppercase tracking-wider text-xs shadow-sm hover:bg-muted hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
           >
             <Plus className="h-4.5 w-4.5 text-primary" />
-            New Invoice
+            Invoice
           </Button>
         </div>
       </div>

@@ -174,9 +174,10 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
           if (createResponse.ok) {
             const createData = await createResponse.json();
-            currentWalletId = createData.wallet.walletId;
-            currentWalletAddress = createData.wallet.walletAddress;
-            console.log('✅ FinancialContext: Wallet created/retrieved via API:', { walletId: currentWalletId, address: currentWalletAddress });
+            const primaryWallet = createData.wallets?.[0] || createData.wallet;
+            currentWalletId = primaryWallet?.walletId || primaryWallet?.id;
+            currentWalletAddress = primaryWallet?.walletAddress || primaryWallet?.address;
+            console.log('✅ FinancialContext: Wallet created/retrieved via API:', { walletId: currentWalletId, address: currentWalletAddress, wallets: createData.wallets?.length });
           } else {
             const errorData = await createResponse.json();
             console.error('❌ FinancialContext: Failed to create/verify wallet via API:', errorData);

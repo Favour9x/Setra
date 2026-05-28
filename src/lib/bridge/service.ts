@@ -1,24 +1,22 @@
-import { BridgeKit } from "@circle-fin/bridge-kit";
-import { createCircleWalletsAdapter } from "@circle-fin/adapter-circle-wallets";
-import type { ChainDefinition, BridgeChainIdentifier } from "@circle-fin/bridge-kit";
+import { BridgeKit, type BridgeChainIdentifier } from "@circle-fin/bridge-kit";
+import { createAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
+import type { ChainDefinition } from "@circle-fin/bridge-kit";
+import type { Hex } from "viem";
 
 let kitInstance: BridgeKit | null = null;
-let adapterInstance: ReturnType<typeof createCircleWalletsAdapter> | null = null;
+let adapterInstance: ReturnType<typeof createAdapterFromPrivateKey> | null = null;
 let chainsCache: ChainDefinition[] | null = null;
 
-function ensureCredentials() {
-  const apiKey = process.env.CIRCLE_API_KEY;
-  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
-  if (!apiKey || !entitySecret) {
-    throw new Error("Circle API credentials not configured (CIRCLE_API_KEY, CIRCLE_ENTITY_SECRET)");
-  }
-  return { apiKey, entitySecret };
+function getPrivateKey(): Hex {
+  const pk = process.env.BRIDGE_PRIVATE_KEY;
+  if (!pk) throw new Error("BRIDGE_PRIVATE_KEY not configured");
+  return (pk.startsWith("0x") ? pk : `0x${pk}`) as Hex;
 }
 
 function ensureKit() {
   if (kitInstance && adapterInstance) return { kit: kitInstance, adapter: adapterInstance };
-  const { apiKey, entitySecret } = ensureCredentials();
-  const adapter = createCircleWalletsAdapter({ apiKey, entitySecret });
+  const privateKey = getPrivateKey();
+  const adapter = createAdapterFromPrivateKey({ privateKey });
   const kit = new BridgeKit();
   kitInstance = kit;
   adapterInstance = adapter;
@@ -40,68 +38,68 @@ export function getSupportedChains(options?: { isTestnet?: boolean }) {
   return all;
 }
 
-export function getChainById(chainId: string): ChainDefinition | undefined {
-  return ensureChains().find((c) => c.chain === chainId);
+export function getChainByEnum(chainEnum: string): ChainDefinition | undefined {
+  return ensureChains().find((c) => c.chain === chainEnum);
 }
 
 export interface BridgeEstimateParams {
   fromChain: string;
   toChain: string;
   amount: string;
-  fromAddress: string;
-  toAddress?: string;
 }
 
 export interface BridgeExecuteParams {
   fromChain: string;
   toChain: string;
   amount: string;
-  fromAddress: string;
-  toAddress?: string;
   recipientAddress?: string;
 }
 
 export async function estimateBridge(params: BridgeEstimateParams) {
   const { kit, adapter } = ensureKit();
-  const fromChain = getChainById(params.fromChain);
-  const toChain = getChainById(params.toChain);
+  const fromChain = getChainByEnum(params.fromChain);
+  const toChain = getChainByEnum(params.toChain);
   if (!fromChain || !toChain) {
     throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
   }
   return kit.estimate({
-    from: {
-      adapter,
-      chain: fromChain as BridgeChainIdentifier,
-      address: params.fromAddress,
-    },
-    to: {
-      adapter,
-      chain: toChain as BridgeChainIdentifier,
-      address: params.toAddress || params.fromAddress,
-    },
+    from: { adapter, chain: fromChain as BridgeChainIdentifier },
+    to: { adapter, chain: toChain as BridgeChainIdentifier },
     amount: params.amount,
   });
 }
 
 export async function executeBridge(params: BridgeExecuteParams) {
   const { kit, adapter } = ensureKit();
-  const fromChain = getChainById(params.fromChain);
-  const toChain = getChainById(params.toChain);
+  const fromChain = getChainByEnum(params.fromChain);
+  const toChain = getChainByEnum(params.toChain);
   if (!fromChain || !toChain) {
     throw new Error(`Chain not found: ${!fromChain ? params.fromChain : params.toChain}`);
   }
   return kit.bridge({
-    from: {
-      adapter,
-      chain: fromChain as BridgeChainIdentifier,
-      address: params.fromAddress,
-    },
+    from: { adapter, chain: fromChain as BridgeChainIdentifier },
     to: {
       adapter,
       chain: toChain as BridgeChainIdentifier,
-      address: params.toAddress || params.fromAddress,
       ...(params.recipientAddress ? { recipientAddress: params.recipientAddress } : {}),
     },
     amount: params.amount,
   });
+}
+
+export async function sendToBridgeEOA(
+  fromWalletId: string,
+  amount: string,
+  blockchain: string
+): Promise<{ transactionId: string; txHash?: string }> {
+  const { sendToken } = await import("../circle/client");
+  const bridgeAddress = getBridgeAddress();
+  const result = await sendToken(fromWalletId, bridgeAddress, amount, "USDC", blockchain);
+  return { transactionId: result.transactionId, txHash: result.txHash };
+}
+
+export function getBridgeAddress(): string {
+  const { privateKeyToAddress } = require("viem/accounts");
+  const pk = getPrivateKey();
+  return privateKeyToAddress(pk);
 }

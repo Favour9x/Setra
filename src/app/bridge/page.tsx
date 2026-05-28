@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from "@/components/ui/select";
 import { useNotify } from "@/components/ui/notification";
-import { ArrowLeft, Loader2, ArrowRightLeft, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, ArrowRightLeft, CheckCircle2, AlertCircle, RefreshCw, Wallet, ExternalLink } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
@@ -42,6 +42,15 @@ interface ChainInfo {
   type: string;
 }
 
+interface ChainBalance {
+  blockchain: string;
+  chainName: string;
+  isTestnet: boolean;
+  walletId: string;
+  walletAddress: string;
+  usdcBalance: number;
+}
+
 function BridgePageContent() {
   const { notify } = useNotify();
   const [chains, setChains] = useState<ChainInfo[]>([]);
@@ -56,17 +65,28 @@ function BridgePageContent() {
   const [bridging, setBridging] = useState(false);
   const [bridgeResult, setBridgeResult] = useState<any>(null);
   const [bridgeError, setBridgeError] = useState("");
+  const [chainBalances, setChainBalances] = useState<ChainBalance[]>([]);
+  const [balancesLoading, setBalancesLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/bridge/supported-chains");
-        const data = await res.json();
-        setChains(data.chains || []);
+        const [chainsRes, balancesRes] = await Promise.all([
+          fetch("/api/bridge/supported-chains"),
+          fetch("/api/wallet/chain-balances"),
+        ]);
+        const chainsData = await chainsRes.json();
+        setChains(chainsData.chains || []);
+
+        const balancesData = await balancesRes.json();
+        if (balancesData.chains) {
+          setChainBalances(balancesData.chains);
+        }
       } catch {
         notify("Failed to load supported chains");
       } finally {
         setChainsLoading(false);
+        setBalancesLoading(false);
       }
     })();
   }, [notify]);
@@ -466,6 +486,42 @@ function BridgePageContent() {
               </Card>
             </motion.div>
           )}
+
+          <Card className="border-none shadow-premium bg-card overflow-hidden">
+            <CardHeader className="p-6 pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                Your Balances
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 pt-0 space-y-3">
+              {balancesLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : chainBalances.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No wallets found</p>
+              ) : (
+                chainBalances.map((cb) => (
+                  <div
+                    key={cb.blockchain}
+                    className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${getChainColor(chains.find((c) => c.chain === cb.blockchain)?.type || "evm")}`} />
+                      <span className="text-sm font-medium">{cb.chainName}</span>
+                      {cb.isTestnet && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded">T</span>
+                      )}
+                    </div>
+                    <span className="text-sm font-bold">
+                      ${cb.usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="border-none shadow-premium bg-card overflow-hidden">
             <CardHeader className="p-6 pb-3">

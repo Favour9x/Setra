@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase-server";
 
+const BLOCKCHAIN_TO_CIRCLE: Record<string, string> = {
+  Ethereum_Sepolia: "ETH-SEPOLIA",
+  Arbitrum_Sepolia: "ARB-SEPOLIA",
+  Base_Sepolia: "BASE-SEPOLIA",
+  Polygon_Amoy: "MATIC-AMOY",
+  Arc_Testnet: "ARC-TESTNET",
+};
+
 export async function POST(request: NextRequest) {
   try {
     const { fromChain, toChain, amount, recipientAddress } = await request.json();
@@ -18,26 +26,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("wallet_address")
-      .eq("id", session.user.id)
-      .single();
+    const userId = session.user.id;
+    const circleBlockchain = BLOCKCHAIN_TO_CIRCLE[fromChain] || "ARC-TESTNET";
+    const destAddress = recipientAddress || session.user.email;
 
-    if (!profile?.wallet_address) {
-      return NextResponse.json({ error: "Wallet address not found" }, { status: 400 });
+    const { executeBridge, sendToBridgeEOA, getBridgeAddress } = await import("@/lib/bridge/service");
+    const { listUserWallets } = await import("@/lib/circle/client");
+
+    const userWallets = await listUserWallets(userId);
+    const sourceWallet = userWallets.find((w) => w.blockchain === circleBlockchain);
+
+    if (!sourceWallet) {
+      return NextResponse.json(
+        { error: `No wallet found on ${fromChain}. Create one first.` },
+        { status: 400 }
+      );
     }
 
-    const { executeBridge } = await import("@/lib/bridge/service");
-    const result = await executeBridge({
+    const bridgeEOA = getBridgeAddress();
+
+    const sendResult = await sendToBridgeEOA(sourceWallet.walletId, amount, circleBlockchain);
+
+    const bridgeResult = await executeBridge({
       fromChain,
       toChain,
       amount,
-      fromAddress: profile.wallet_address,
-      recipientAddress: recipientAddress || undefined,
+      recipientAddress: destAddress,
     });
 
-    return NextResponse.json({ result });
+    return NextResponse.json({
+      success: true,
+      depositTransaction: { transactionId: sendResult.transactionId, txHash: sendResult.txHash },
+      bridgeTransaction: bridgeResult,
+    });
   } catch (error: any) {
     console.error("Bridge execute error:", error);
     return NextResponse.json(
