@@ -6,6 +6,7 @@ import { NotificationProvider } from "@/components/ui/notification";
 import { AuthProvider } from "@/context/AuthContext";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { NotificationCenterProvider } from "@/context/NotificationCenterContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,17 +21,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased bg-background text-foreground`}>
-        <AuthProvider>
-          <NotificationCenterProvider>
-            <NotificationProvider>
-              <FinancialProvider>
-                <LayoutWrapper>{children}</LayoutWrapper>
-              </FinancialProvider>
-            </NotificationProvider>
-          </NotificationCenterProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NotificationCenterProvider>
+              <NotificationProvider>
+                <FinancialProvider>
+                  <LayoutWrapper>{children}</LayoutWrapper>
+                </FinancialProvider>
+              </NotificationProvider>
+            </NotificationCenterProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

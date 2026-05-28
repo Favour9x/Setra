@@ -35,6 +35,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resolveRecipientAddress } from "../resolve-username";
 import { saveIntentWorkflow } from "../services/intent-workflow-db";
 import { parseIntent } from "../workflows/intent-parser";
+import { parseWithGenAI, parseWithGroq } from "./genai-parser";
 
 // Secure server-side Supabase admin client
 const getAdminClient = () => {
@@ -173,6 +174,21 @@ export async function parseAgentPrompt(
 ): Promise<AgentActionResult> {
   const normalized = prompt.toLowerCase();
   console.log(`🤖 AI Intent Agent: Parsing prompt for user ${userId} => "${prompt}"`);
+
+  // Try Google GenAI first, then Groq, then regex
+  const genaiResult = await parseWithGenAI(userId, prompt);
+  if (genaiResult) {
+    console.log(`🤖 AI Intent Agent: GenAI parsed intent successfully`);
+    return genaiResult;
+  }
+  console.log(`🤖 AI Intent Agent: GenAI not available, trying Groq...`);
+
+  const groqResult = await parseWithGroq(userId, prompt);
+  if (groqResult) {
+    console.log(`🤖 AI Intent Agent: Groq parsed intent successfully`);
+    return groqResult;
+  }
+  console.log(`🤖 AI Intent Agent: Groq not available, falling back to regex parsing`);
 
   const resolveIdentifier = async (val: string): Promise<string> => {
     try {

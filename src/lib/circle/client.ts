@@ -1,5 +1,6 @@
 import {
   initiateDeveloperControlledWalletsClient,
+  Blockchain,
 } from "@circle-fin/developer-controlled-wallets";
 
 // Initialize Circle client
@@ -51,9 +52,9 @@ export async function createEmbeddedWallet(
 
   const response = await client.createWallets({
     walletSetId,
-    blockchains: ["ARC-TESTNET" as any], // Type assertion for Arc Testnet
+    blockchains: [Blockchain.ArcTestnet],
     count: 1,
-    accountType: "EOA",
+    accountType: "SCA",
     metadata: [
       {
         name: `wallet-${userId}`,
@@ -176,45 +177,13 @@ export async function sendToken(
 
   console.log("Circle tx created:", transactionId);
 
-  // Poll for transaction completion per Circle docs
-  let transactionState = "INITIATED";
-  let txHash: string | undefined;
-  let attempts = 0;
-  const maxAttempts = 40; // 2 minutes max (3 seconds * 40)
-
-  while (
-    transactionState !== "COMPLETE" &&
-    transactionState !== "FAILED" &&
-    transactionState !== "CANCELLED" &&
-    transactionState !== "DENIED" &&
-    attempts < maxAttempts
-  ) {
-    await new Promise((resolve) => setTimeout(resolve, 3000)); // Poll every 3 seconds
-
-    const statusResponse = await client.getTransaction({
-      id: transactionId,
-    });
-
-    transactionState = statusResponse.data?.transaction?.state || "UNKNOWN";
-    txHash = statusResponse.data?.transaction?.txHash;
-
-    console.log("Circle tx state:", transactionState, "txHash:", txHash);
-
-    attempts++;
-
-    if (transactionState === "FAILED" || transactionState === "CANCELLED" || transactionState === "DENIED") {
-      throw new Error(`Transaction ${transactionState.toLowerCase()}`);
-    }
-  }
-
-  if (attempts >= maxAttempts) {
-    throw new Error("Transaction timeout - state never reached COMPLETE");
-  }
-
+  // FIRE-AND-FORGET: Return immediately after submission.
+  // Transaction status will be delivered via webhook.
+  // The caller should insert a "pending" record and await webhook update.
   return {
     transactionId,
-    status: transactionState,
-    txHash,
+    status: "PENDING",
+    txHash: undefined,
   };
 }
 

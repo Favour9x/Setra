@@ -11,6 +11,10 @@ export async function POST(
     const body = await request.json();
     const { amount, message, senderAddress, senderUsername, payerName, isManualAttempt, walletId } = body;
 
+    if (!username || typeof username !== "string") {
+      return NextResponse.json({ error: "Invalid username in URL" }, { status: 400 });
+    }
+
     if (!amount || Number(amount) <= 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }

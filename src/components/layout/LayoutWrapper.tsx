@@ -48,12 +48,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [settings.theme, mounted, isAuthPage]);
 
-  // For auth pages, render immediately without loading checks
-  if (isAuthPage) {
-    return <main className="min-h-screen font-sans antialiased">{children}</main>;
-  }
-
   // Redirect logic in useEffect to avoid render-time state updates
+  // MUST be before early returns to maintain hooks order
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
 
@@ -66,6 +62,11 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       router.push("/setup-username");
     }
   }, [mounted, authLoading, user, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
+
+  // For auth pages, render immediately without loading checks
+  if (isAuthPage) {
+    return <main className="min-h-screen font-sans antialiased">{children}</main>;
+  }
 
   // For protected pages, show loading state (with safety timeout)
   if (!mounted || (authLoading && !authTimeout)) {

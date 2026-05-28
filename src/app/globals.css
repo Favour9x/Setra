@@ -3,64 +3,64 @@
 @tailwind utilities;
 
 :root {
-  --background: #F4F4F5;
-  --foreground: #1A1A2E;
-  --card: #FFFFFF;
-  --card-foreground: #1A1A2E;
-  --popover: #FFFFFF;
-  --popover-foreground: #1A1A2E;
-  --primary: #4361EE;
-  --primary-foreground: #FFFFFF;
-  --secondary: #2ECC9A;
-  --secondary-foreground: #FFFFFF;
-  --muted: #F1F5F9;
-  --muted-foreground: #6B7280;
-  --accent: #F1F5F9;
-  --accent-foreground: #1A1A2E;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #4361EE;
+  --background: 244 244 245;
+  --foreground: 26 26 46;
+  --card: 255 255 255;
+  --card-foreground: 26 26 46;
+  --popover: 255 255 255;
+  --popover-foreground: 26 26 46;
+  --primary: 67 97 238;
+  --primary-foreground: 255 255 255;
+  --secondary: 46 204 154;
+  --secondary-foreground: 255 255 255;
+  --muted: 241 245 249;
+  --muted-foreground: 107 114 128;
+  --accent: 241 245 249;
+  --accent-foreground: 26 26 46;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --border: 229 231 235;
+  --input: 229 231 235;
+  --ring: 67 97 238;
   --radius: 0.75rem;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1A1A2E;
-  --sidebar-primary: #4361EE;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F8FAFC;
-  --sidebar-accent-foreground: #4361EE;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #4361EE;
+  --sidebar: 255 255 255;
+  --sidebar-foreground: 26 26 46;
+  --sidebar-primary: 67 97 238;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 248 250 252;
+  --sidebar-accent-foreground: 67 97 238;
+  --sidebar-border: 229 231 235;
+  --sidebar-ring: 67 97 238;
 }
 
 .dark {
-  --background: #0F172A;
-  --foreground: #F8FAFC;
-  --card: #1E293B;
-  --card-foreground: #F8FAFC;
-  --popover: #1E293B;
-  --popover-foreground: #F8FAFC;
-  --primary: #4361EE;
-  --primary-foreground: #FFFFFF;
-  --secondary: #2ECC9A;
-  --secondary-foreground: #FFFFFF;
-  --muted: #334155;
-  --muted-foreground: #94A3B8;
-  --accent: #334155;
-  --accent-foreground: #F8FAFC;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --border: #334155;
-  --input: #334155;
-  --ring: #4361EE;
-  --sidebar: #1E293B;
-  --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #4361EE;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #334155;
-  --sidebar-accent-foreground: #F8FAFC;
-  --sidebar-border: #334155;
-  --sidebar-ring: #4361EE;
+  --background: 15 23 42;
+  --foreground: 248 250 252;
+  --card: 30 41 59;
+  --card-foreground: 248 250 252;
+  --popover: 30 41 59;
+  --popover-foreground: 248 250 252;
+  --primary: 67 97 238;
+  --primary-foreground: 255 255 255;
+  --secondary: 46 204 154;
+  --secondary-foreground: 255 255 255;
+  --muted: 51 65 85;
+  --muted-foreground: 148 163 184;
+  --accent: 51 65 85;
+  --accent-foreground: 248 250 252;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --border: 51 65 85;
+  --input: 51 65 85;
+  --ring: 67 97 238;
+  --sidebar: 30 41 59;
+  --sidebar-foreground: 248 250 252;
+  --sidebar-primary: 67 97 238;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 51 65 85;
+  --sidebar-accent-foreground: 248 250 252;
+  --sidebar-border: 51 65 85;
+  --sidebar-ring: 67 97 238;
 }
 
 @layer base {
@@ -91,28 +91,19 @@
 
   /* Mobile optimizations */
   @media (max-width: 768px) {
-    /* Ensure no horizontal scroll */
     body {
       overflow-x: hidden;
     }
-
-    /* Stack cards vertically */
     .grid {
       grid-template-columns: 1fr !important;
     }
-
-    /* Full width inputs */
     input, textarea, select {
       width: 100%;
     }
-
-    /* Minimum touch target size */
     button, a, [role="button"] {
       min-height: 44px;
       min-width: 44px;
     }
-
-    /* Full screen modals on mobile */
     [role="dialog"] {
       max-width: 100vw !important;
       max-height: 100vh !important;

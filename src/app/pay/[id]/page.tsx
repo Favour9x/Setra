@@ -89,15 +89,7 @@ export default function PayPage() {
   const [settingRecurring, setSettingRecurring] = useState(false);
 
   const { user } = useAuth();
-  let walletId: string | null = null;
-  let walletAddress: string | null = null;
-  let refreshData: (() => Promise<void>) | null = null;
-  try {
-    const fin = useFinancial();
-    walletId = fin.walletId;
-    walletAddress = fin.walletAddress;
-    refreshData = fin.refreshData;
-  } catch (e) {}
+  const { walletId, walletAddress, refreshData } = useFinancial();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -167,23 +159,24 @@ export default function PayPage() {
   const handlePay = async () => {
     if (!tipsPage || !displayAmount) return notify("Select an amount");
     if (displayAmount <= 0) return notify("Invalid amount");
+    if (!user) return notify("You must be logged in to send a tip");
+    if (!walletId) return notify("Wallet not ready. Please try again in a moment.");
+    if (!paramId || typeof paramId !== "string") return notify("Invalid page URL");
 
     setPaying(true);
     try {
-      if (user && walletId) {
-        const res = await fetch(`/api/tips/${paramId}/pay`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: displayAmount, message: tipMessage, senderAddress: walletAddress, senderUsername: user.user_metadata?.username || null, walletId }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setPaymentSuccess(true);
-          notify(`Tip of $${displayAmount} sent!`);
-          if (refreshData) await refreshData();
-        } else notify(data.error || "Payment failed");
-      }
+      const res = await fetch(`/api/tips/${encodeURIComponent(paramId)}/pay`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: displayAmount, message: tipMessage, senderAddress: walletAddress, senderUsername: user.user_metadata?.username || null, walletId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPaymentSuccess(true);
+        notify(`Tip of $${displayAmount} sent!`);
+        if (refreshData) await refreshData();
+      } else notify(data.error || "Payment failed");
     } catch (e: any) { notify("Payment failed"); }
     finally { setPaying(false); }
   };
@@ -222,7 +215,7 @@ export default function PayPage() {
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
         </div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl">
           <div className="flex items-center justify-center mb-8 gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center"><span className="text-primary-foreground font-black text-xl">S</span></div>
             <h2 className="text-3xl font-black tracking-tighter uppercase opacity-90">Setra</h2>
@@ -298,7 +291,7 @@ export default function PayPage() {
         </motion.div>
         {paymentSuccess && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-            <Card className="border-none shadow-premium bg-card max-w-md w-full mx-4">
+            <Card className="border-none shadow-premium bg-card max-w-lg w-full mx-4">
               <CardContent className="p-12 text-center">
                 <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-black mb-2">Payment Submitted!</h2>
@@ -333,13 +326,13 @@ export default function PayPage() {
     if (paymentSuccess) {
       return (
         <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg">
             <Card className="border-none shadow-premium bg-card">
               <CardContent className="p-12 text-center">
                 <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
                   <CheckCircle2 className="h-10 w-10 text-emerald-500" />
                 </div>
-                <h2 className="text-2xl font-black mb-2">Tip Sent! 🎉</h2>
+                <h2 className="text-2xl font-black mb-2">Tip Sent!</h2>
                 <p className="text-sm text-muted-foreground mb-4">Thank you for supporting {creatorInfo.displayName || creatorInfo.username}!</p>
                 {displayAmount && <p className="text-3xl font-black text-primary mb-6">${displayAmount} USDC</p>}
                 {tipMessage && <p className="text-sm italic text-muted-foreground mb-6">"{tipMessage}"</p>}
@@ -358,7 +351,7 @@ export default function PayPage() {
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8">
+        <div className="w-full max-w-[1400px] mx-auto px-6 md:px-10 lg:px-16 py-8 md:py-12 space-y-8">
           {/* Creator Header */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-4">
             <Avatar className="w-20 h-20 mx-auto border-2 border-primary/20 shadow-lg">
@@ -598,7 +591,7 @@ export default function PayPage() {
             <div className="inline-flex flex-col items-center gap-3 p-4 rounded-2xl bg-card/50 border border-border/20">
               <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Share this page</p>
               <div className="p-2 bg-white rounded-xl">
-                <QRCode value={typeof window !== "undefined" ? window.location.href : ""} size={100} level="H" />
+                <QRCode value={typeof window !== "undefined" ? window.location.href : ""} size={140} level="H" />
               </div>
               <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black" onClick={() => { navigator.clipboard.writeText(window.location.href); notify("Link copied!"); }}>
                 <Copy className="h-3 w-3 mr-1.5" /> Copy Link

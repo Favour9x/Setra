@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { executePayment } from "@/lib/payments";
 import { createNotification } from "@/lib/services/notification";
 import { sendTransactionReceiptEmail } from "@/lib/services/email";
-import { creditUserBalance, insertLedgerTransaction, insertRecipientReceivedTransaction } from "@/lib/services/ledger";
+import { insertLedgerTransaction } from "@/lib/services/ledger";
 
 export interface Invoice {
   id: string;
@@ -168,12 +168,13 @@ export async function fetchInvoices(userId: string, supabase?: any): Promise<Inv
     }
   }
 
-  // 4. Map with dynamic type: "received" if current user's wallet matches recipient_address, otherwise "sent"
+  // 4. Map with dynamic type: respect DB type first, fall back to wallet-matching heuristic
   return data.map((inv: any) => {
     const isRecipient = walletAddress && inv.recipient_address?.toLowerCase?.() === walletAddress;
+    const dbType = inv.type as string;
     return {
       ...inv,
-      type: isRecipient ? "received" : "sent",
+      type: dbType === "sent" || dbType === "received" ? dbType : (isRecipient ? "received" : "sent"),
       sender_username: usernameMap[inv.user_id] || "creator"
     } as Invoice;
   });
@@ -280,66 +281,8 @@ export async function payInvoice(
 
     console.log("Circle tx created:", transactionId);
 
-    // Poll for transaction completion
-    let transactionState = "INITIATED";
-    let txHash: string | undefined;
-    let attempts = 0;
-    const maxAttempts = 40;
-
-    while (
-      transactionState !== "COMPLETE" &&
-      transactionState !== "FAILED" &&
-      transactionState !== "CANCELLED" &&
-      transactionState !== "DENIED" &&
-      attempts < maxAttempts
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      const statusResponse = await client.getTransaction({
-        id: transactionId,
-      });
-
-      transactionState = statusResponse.data?.transaction?.state || "UNKNOWN";
-      txHash = statusResponse.data?.transaction?.txHash;
-
-      console.log("Circle tx state:", transactionState, "txHash:", txHash);
-
-      attempts++;
-
-      if (transactionState === "FAILED" || transactionState === "CANCELLED" || transactionState === "DENIED") {
-        return { success: false, error: `Transaction ${transactionState.toLowerCase()}` };
-      }
-    }
-
-    if (attempts >= maxAttempts) {
-      return { success: false, error: "Transaction timeout" };
-    }
-
-    // Update invoice status to paid for BOTH sent and received copies
-    await adminClient
-      .from("invoices")
-      .update({ status: "paid", payer_address: payerProfile.wallet_address })
-      .eq("id", invoiceId);
-    
-    // Update the paired invoice (the other copy) by matching title and amount
-    if (invoice.type === "sent") {
-      await adminClient
-        .from("invoices")
-        .update({ status: "paid", payer_address: payerProfile.wallet_address })
-        .eq("user_id", payingUserId)
-        .eq("title", invoice.title)
-        .eq("amount", invoice.amount)
-        .eq("type", "received");
-    } else if (invoice.type === "received") {
-      await adminClient
-        .from("invoices")
-        .update({ status: "paid", payer_address: payerProfile.wallet_address })
-        .eq("title", invoice.title)
-        .eq("amount", invoice.amount)
-        .eq("type", "sent");
-    }
-
-    // Insert sender's transaction record
+    // FIRE-AND-FORGET: Return immediately. Webhook will confirm.
+    // Insert a processing record for the sender
     await insertLedgerTransaction(adminClient, {
       userId: payingUserId,
       recipientAddress: senderProfile.wallet_address,
@@ -347,8 +290,8 @@ export async function payInvoice(
       amount: invoice.amount,
       type: "sent",
       category: "Invoice",
-      status: "confirmed",
-      txHash: txHash || transactionId,
+      status: "processing",
+      txHash: null,
       metadata: {
         invoiceId: invoiceId,
         invoiceTitle: invoice.title,
@@ -357,44 +300,29 @@ export async function payInvoice(
       }
     });
 
-    // Insert recipient's received transaction record
-    await insertRecipientReceivedTransaction(adminClient, {
-      destinationAddress: senderProfile.wallet_address,
-      amount: invoice.amount,
-      txHash: txHash || transactionId,
-      displaySender: payerProfile.wallet_address,
-      category: "Invoice",
-      metadata: {
-        invoiceId: invoiceId,
-        invoiceTitle: invoice.title,
-        transactionId: transactionId,
-      }
-    });
-
-    // Send notification to invoice creator
     const { data: payerUsername } = await adminClient
       .from("profiles")
       .select("username")
       .eq("id", payingUserId)
       .maybeSingle();
-    
+
     const payerDisplay = payerUsername?.username ? `@${payerUsername.username}` : "Someone";
-    
+
     await createNotification(
       invoice.user_id,
       "payment_received",
-      "Invoice Paid",
-      `${payerDisplay} has paid your invoice of ${invoice.amount} USDC`,
-      { 
-        invoice_id: invoiceId, 
+      "Invoice Payment Submitted",
+      `${payerDisplay} has submitted payment of ${invoice.amount} USDC — confirming on-chain`,
+      {
+        invoice_id: invoiceId,
         amount: invoice.amount,
         payer_id: payingUserId,
-        tx_hash: txHash,
+        transactionId: transactionId,
         link: `/invoices/${invoiceId}`
       }
     );
 
-    return { success: true, txHash: txHash || transactionId };
+    return { success: true, txHash: undefined };
   } catch (error: any) {
     console.error("❌ Pay invoice error:", error);
     return { success: false, error: error.message || "Payment failed" };

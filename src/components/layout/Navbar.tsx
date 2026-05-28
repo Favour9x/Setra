@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Search, Menu, User, Settings as SettingsIcon, LogOut, ChevronDown, RefreshCw, QrCode, Camera, X, ScanLine, Download } from "lucide-react";
+import { Bell, Search, Menu, User, Settings as SettingsIcon, LogOut, ChevronDown, RefreshCw, QrCode, Camera, X, ScanLine, Download, Sun, Moon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useNotificationCenter, getNotificationIcon } from "@/context/Notificati
 import { Html5Qrcode } from "html5-qrcode";
 import { useNotify } from "@/components/ui/notification";
 import { QRCode } from "react-qr-code";
+import { useTheme } from "@/context/ThemeContext";
 
 export function Navbar() {
   const { isLoaded, setSettingsOpen, refreshData, refreshBalance, profile, username, walletAddress, balance } = useFinancial();
@@ -24,6 +25,7 @@ export function Navbar() {
   const router = useRouter();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationCenter();
   const { notify } = useNotify();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -152,6 +154,17 @@ export function Navbar() {
             title="My QR Code"
           >
             <QrCode className="h-5 w-5" />
+          </Button>
+
+          {/* Theme Toggle */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleTheme}
+            className="h-10 w-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
 
           {/* Scan QR Code Button */}

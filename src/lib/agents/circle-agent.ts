@@ -31,7 +31,7 @@ export async function logAgentAction(
   status: AgentLog["status"],
   details: string,
   amount?: number,
-  txHash?: string
+  txHashOrId?: string
 ): Promise<void> {
   const supabase = getAdminClient();
   const timestamp = new Date().toISOString();
@@ -39,20 +39,21 @@ export async function logAgentAction(
   console.log(`🤖 [Circle Agent Stack]: Logging action [${actionType}] - Status: ${status} - Details: ${details}`);
 
   try {
-    // NEVER insert a transaction without a real tx_hash from Circle
-    if (!txHash) {
-      console.log('logAgentAction: No txHash, skipping transaction insert');
+    if (!txHashOrId) {
+      console.log('logAgentAction: No txHashOrId, skipping transaction insert');
       return;
     }
+
+    const txIdKey = txHashOrId.startsWith("0x") ? "tx_hash" : "tx_hash";
 
     const { data: existing } = await supabase
       .from("transactions")
       .select("id")
-      .eq("tx_hash", txHash)
+      .eq(txIdKey, txHashOrId)
       .maybeSingle();
 
     if (existing) {
-      console.log(`Transaction ${txHash} already recorded, skipping duplicate`);
+      console.log(`Transaction ${txHashOrId} already recorded, skipping duplicate`);
       return;
     }
 
@@ -64,7 +65,7 @@ export async function logAgentAction(
       category: "Agent Action",
       currency: "USDC",
       status: status === "success" ? "success" : "failed",
-      tx_hash: txHash,
+      tx_hash: txHashOrId,
       metadata: {
         agentExecuted: true,
         agentType: "Circle AI Agent",
@@ -160,28 +161,22 @@ export class PaymentExecutorAgent {
     amount: number,
     description: string = "Circle Agent Automated Payment",
     token: string = "USDC"
-  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  ): Promise<{ success: boolean; txHash?: string; transactionId?: string; error?: string }> {
     try {
       console.log(`🤖 [PaymentExecutorAgent]: Executing payment of $${amount} to ${toAddress}...`);
       
-      // UPGRADE PATH FLAG:
-      // When Circle Agent Stack stabilizes, swap this sendUSDC call to use the Circle CLI:
-      // `circle services pay` or standard '@circle-fin/agent-sdk'
       const result = await sendToken(fromWalletId, toAddress, amount.toString(), token);
 
-      if (result.status === "COMPLETE") {
-        await logAgentAction(
-          this.userId,
-          "payment_execution",
-          "success",
-          `Automated payment completed: ${description}`,
-          amount,
-          result.txHash
-        );
-        return { success: true, txHash: result.txHash };
-      } else {
-        throw new Error(`Circle transaction ended with state: ${result.status}`);
-      }
+      await logAgentAction(
+        this.userId,
+        "payment_execution",
+        "success",
+        `Automated payment submitted: ${description} (tx: ${result.transactionId})`,
+        amount,
+        result.transactionId
+      );
+
+      return { success: true, txHash: undefined, transactionId: result.transactionId };
     } catch (error: any) {
       const errMsg = error.message || "Circle agent payment execution failed";
       await logAgentAction(
@@ -198,6 +193,8 @@ export class PaymentExecutorAgent {
 
 /**
  * 2. InvoiceMonitorAgent - Detects incoming payments and marks invoices paid.
+ * Now webhook-driven: checks the database for recently-confirmed inbound
+ * transactions and matches them to pending invoices.
  */
 export class InvoiceMonitorAgent {
   private userId: string;
@@ -207,7 +204,9 @@ export class InvoiceMonitorAgent {
   }
 
   /**
-   * Scans pending invoices, checks for matches, and marks them as paid.
+   * Checks the database for confirmed inbound transactions that can
+   * be matched to pending invoices. The webhook handler does the
+   * primary matching; this serves as a catch-up for any missed events.
    */
   async monitorInvoices(): Promise<{ checked: number; markedPaid: number }> {
     const supabase = getAdminClient();
@@ -215,95 +214,48 @@ export class InvoiceMonitorAgent {
     let markedPaid = 0;
 
     try {
-      console.log(`🤖 [InvoiceMonitorAgent]: Scanning pending invoices for user ${this.userId}...`);
-      
-      // Fetch pending or awaiting confirmation invoices for the user
-      const { data: invoices, error } = await supabase
-        .from("invoices")
-        .select("*")
-        .eq("user_id", this.userId)
-        .in("status", ["pending", "awaiting_confirmation"]);
+      console.log(`🤖 [InvoiceMonitorAgent]: Checking for unmatched inbound tx for user ${this.userId}...`);
 
-      if (error || !invoices) return { checked: 0, markedPaid: 0 };
+      const { data: invoices } = await supabase
+        .from("invoices")
+        .select("id, title, amount, recipient_address, status, user_id")
+        .eq("user_id", this.userId)
+        .eq("status", "pending");
+
+      if (!invoices || invoices.length === 0) return { checked: 0, markedPaid: 0 };
       checked = invoices.length;
 
-      // Get user wallet balance to verify any incoming funds
       const { data: profile } = await supabase
         .from("profiles")
-        .select("wallet_id")
+        .select("wallet_address")
         .eq("id", this.userId)
         .single();
 
-      if (profile?.wallet_id) {
-        // UPGRADE PATH FLAG:
-        // When Agent Stack is stable, swap with 'circle wallet balance --address <addr>' CLI command
-        const balances = await getWalletBalance(profile.wallet_id);
-        const usdcBalance = balances.find(b => b.symbol === "USDC");
-        const currentUSDC = usdcBalance ? parseFloat(usdcBalance.amount) : 0;
+      if (!profile?.wallet_address) return { checked, markedPaid };
 
-        for (const invoice of invoices) {
-          // Verify that balance satisfies the invoice amount
-          if (currentUSDC >= parseFloat(invoice.amount || "0") && parseFloat(invoice.amount) > 0) {
-            const wasAwaiting = invoice.status === "awaiting_confirmation";
+      const recentTx = await supabase
+        .from("transactions")
+        .select("amount, metadata")
+        .eq("user_id", this.userId)
+        .eq("type", "income")
+        .eq("status", "success")
+        .gte("created_at", new Date(Date.now() - 3600000).toISOString());
 
-            // Mark invoice as paid
-            await supabase
-              .from("invoices")
-              .update({ status: "paid" })
-              .eq("id", invoice.id);
+      const incomingAmounts = (recentTx.data || []).map((t: any) => parseFloat(t.amount || "0")).filter((a: number) => a > 0);
 
-            markedPaid++;
+      for (const invoice of invoices) {
+        const match = incomingAmounts.find((amt: number) => Math.abs(amt - invoice.amount) < 0.01);
+        if (match !== undefined) {
+          await supabase.from("invoices").update({ status: "paid" }).eq("id", invoice.id);
+          markedPaid++;
 
-            // Trigger "Invoice Paid" notification to the invoice creator (this.userId)
-            try {
-              if (wasAwaiting) {
-                // creator notification: "Invoice [title] has been paid — $[amount] USDC received"
-                await createNotification(
-                  this.userId,
-                  "invoice_paid",
-                  "Invoice Settled On-Chain",
-                  `Invoice "${invoice.title}" has been paid — $${invoice.amount} USDC received`,
-                  { invoice_id: invoice.id, amount: invoice.amount }
-                );
-
-                // recipient notification: "Payment confirmed for invoice [title]"
-                // Find registered payer if they belong to a profile
-                const { data: payerProfile } = await supabase
-                  .from("profiles")
-                  .select("id")
-                  .eq("wallet_address", invoice.payer_address || invoice.recipient_address)
-                  .maybeSingle();
-
-                if (payerProfile?.id) {
-                  await createNotification(
-                    payerProfile.id,
-                    "payment_sent",
-                    "Payment Confirmed",
-                    `Payment confirmed for invoice "${invoice.title}"`,
-                    { invoice_id: invoice.id, amount: invoice.amount }
-                  );
-                }
-              } else {
-                const recipientHandle = await getUserHandleByWallet(invoice.recipient_address);
-                await createNotification(
-                  this.userId,
-                  "invoice_paid",
-                  "Invoice Paid Successfully",
-                  `Your invoice has been paid by ${recipientHandle}`,
-                  { invoice_id: invoice.id, amount: invoice.amount, recipient: invoice.recipient_address }
-                );
-              }
-            } catch (notifErr) {
-              console.error("⚠️ Failed to trigger invoice_paid notification in agent:", notifErr);
-            }
-            await logAgentAction(
-              this.userId,
-              "invoice_monitoring",
-              "success",
-              `Invoice #${invoice.id} recognized as paid by Circle Agent`,
-              parseFloat(invoice.amount)
-            );
-          }
+          await logAgentAction(
+            this.userId,
+            "invoice_monitoring",
+            "success",
+            `Invoice #${invoice.id} matched to inbound tx via catch-up`,
+            parseFloat(invoice.amount)
+          );
         }
       }
     } catch (err: any) {
@@ -364,7 +316,6 @@ export class SubscriptionBillingAgent {
 
           if (billingRes.success) {
             successes++;
-            // Update next billing date to 30 days out
             const nextBilling = new Date();
             nextBilling.setDate(nextBilling.getDate() + 30);
 
@@ -376,14 +327,13 @@ export class SubscriptionBillingAgent {
               })
               .eq("id", sub.id);
 
-            // Trigger "Subscription Renewed" notification
             try {
               await createNotification(
                 this.userId,
                 "subscription_renewed",
                 "Subscription Renewed Successfully",
-                `Subscription payment of $${sub.amount} processed`,
-                { subscription_id: sub.id, plan_name: sub.plan_name || sub.name }
+                `Subscription payment of $${sub.amount} submitted`,
+                { subscription_id: sub.id, plan_name: sub.plan_name || sub.name, transactionId: billingRes.transactionId }
               );
             } catch (notifErr) {
               console.error("⚠️ Failed to trigger subscription_renewed notification:", notifErr);
@@ -395,7 +345,7 @@ export class SubscriptionBillingAgent {
               "success",
               `Billed subscription [${sub.plan_name}] for $${sub.amount} - Next: ${nextBilling.toISOString().split("T")[0]}`,
               parseFloat(sub.amount),
-              billingRes.txHash
+              billingRes.transactionId
             );
           } else {
             await logAgentAction(

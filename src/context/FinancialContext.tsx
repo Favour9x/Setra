@@ -593,6 +593,29 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
                 ]
               }, ...prev.transactions]
             }));
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedTx = payload.new;
+            const normalizedStatus = updatedTx.status === "confirmed" ? "success" : updatedTx.status === "processing" ? "pending" : (updatedTx.status || "success");
+
+            setState(prev => ({
+              ...prev,
+              transactions: prev.transactions.map(t => {
+                if (t.id === updatedTx.id) {
+                  return {
+                    ...t,
+                    amount: Number(updatedTx.amount || t.amount),
+                    status: normalizedStatus as TransactionStatus,
+                    category: updatedTx.category || t.category,
+                    metadata: updatedTx.metadata || t.metadata,
+                    statusHistory: [
+                      ...(t.statusHistory || []),
+                      { status: normalizedStatus as TransactionStatus, timestamp: Date.now() }
+                    ]
+                  };
+                }
+                return t;
+              })
+            }));
           }
         }
       )
@@ -685,10 +708,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       const result = await response.json();
 
       if (result.success) {
-        updateTransactionStatus(txId, "success", `Transaction finalized. Hash: ${result.txHash?.substring(0, 10)}...`);
-        notify(`Payment of $${amount.toLocaleString()} to ${formatAddress(recipient)} successful`);
+        const txRef = result.txHash || result.transactionId || "pending";
+        const refDisplay = txRef.length > 10 ? `${txRef.substring(0, 10)}...` : txRef;
+        updateTransactionStatus(txId, "processing", `Transaction submitted. Ref: ${refDisplay}`);
+        notify(`Payment of $${amount.toLocaleString()} to ${formatAddress(recipient)} submitted — confirming on-chain`);
         
-        // Refresh data to get updated balance from Circle API only
         await fetchData(false);
       } else {
         throw new Error(result.error || 'Payment failed');

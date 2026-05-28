@@ -130,7 +130,10 @@ export async function processTipPayment(
   const tierLabel = getTierLabel(amount, tipsPage);
 
   if (!isManual) {
-    const fromWalletId = walletId || senderAddress;
+    if (!walletId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(walletId)) {
+      return { success: false, error: "Invalid wallet ID. Please refresh and try again." };
+    }
+    const fromWalletId = walletId;
     const paymentResult = await executePayment({
       fromWalletId,
       toAddress: tipsPage.recipient_address,

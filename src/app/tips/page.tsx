@@ -272,6 +272,12 @@ export default function TipsDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
+          <Button
+            onClick={openCreate}
+            className="w-full md:w-auto h-11 px-6 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 font-black uppercase tracking-wider text-xs"
+          >
+            <Plus className="h-4 w-4" /> Create Tips Page
+          </Button>
           {page && (
             <Button
               variant="outline"
@@ -279,14 +285,6 @@ export default function TipsDashboardPage() {
               className="h-11 px-6 rounded-xl font-black uppercase tracking-wider text-xs flex items-center gap-2"
             >
               <Settings2 className="h-4 w-4" /> Settings
-            </Button>
-          )}
-          {!page && (
-            <Button
-              onClick={openCreate}
-              className="w-full md:w-auto h-11 px-6 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 font-black uppercase tracking-wider text-xs"
-            >
-              <Plus className="h-4 w-4" /> Create Tips Page
             </Button>
           )}
         </div>

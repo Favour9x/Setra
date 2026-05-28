@@ -8,13 +8,18 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "migrate:users": "node --import=tsx scripts/migrate-existing-users.ts",
     "check:wallets": "node --import=tsx scripts/check-users-without-wallets.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
+    "@circle-fin/adapter-viem-v2": "^1.11.1",
+    "@circle-fin/bridge-kit": "^1.10.1",
     "@circle-fin/developer-controlled-wallets": "^10.3.1",
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
+    "@circle-fin/x402-batching": "^3.0.4",
     "@fontsource-variable/geist": "^5.2.8",
     "@google/genai": "^1.29.0",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -30,6 +35,7 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
+    "groq-sdk": "^1.2.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
@@ -57,6 +63,7 @@
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",
     "tsx": "^4.22.0",
-    "typescript": "~5.8.2"
+    "typescript": "~5.8.2",
+    "vitest": "^4.1.7"
   }
 }

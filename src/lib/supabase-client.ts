@@ -15,11 +15,9 @@ export const createClient = () => {
     throw new Error('Missing Supabase environment variables. Please check your .env.local file.');
   }
 
-  // Validate anon key format (should be long JWT-like string)
-  if (supabaseAnonKey.length < 100) {
+  if (supabaseAnonKey.length < 20) {
     console.error('❌ Supabase anon key appears to be truncated or invalid');
     console.error('Current length:', supabaseAnonKey.length, 'characters');
-    console.error('Expected length: 100+ characters');
     console.error('Current value (first 50 chars):', supabaseAnonKey.substring(0, 50) + '...');
     throw new Error('Supabase anon key appears to be truncated. Please verify your .env.local file contains the complete key from Supabase dashboard.');
   }
