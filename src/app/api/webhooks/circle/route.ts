@@ -7,8 +7,9 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get("x-circle-signature");
   const keyId = request.headers.get("x-circle-key-id");
 
+  // Circle sends a verification probe with no signature headers
   if (!signature || !keyId) {
-    return NextResponse.json({ error: "Missing signature headers" }, { status: 401 });
+    return NextResponse.json({ success: true, message: "Webhook endpoint verified" });
   }
 
   const body = await request.text();
@@ -27,6 +28,10 @@ export async function POST(request: NextRequest) {
     console.error("❌ Webhook handler error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
+}
+
+export async function HEAD() {
+  return new Response(null, { status: 200 });
 }
 
 export async function GET(request: NextRequest) {
