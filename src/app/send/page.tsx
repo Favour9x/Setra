@@ -400,32 +400,26 @@ function SendPageContent() {
           <Card className="border-none shadow-premium bg-primary text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <CardContent className="p-8 relative z-10">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
-                  Balance on {blockchain.replace(/-/g, " ")}
-                {chainData[blockchain]?.source && (
-                  <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10">
-                    {chainData[blockchain].source}
-                  </span>
-                )}
-              </p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px]">
+                  Unified Balance
+                </p>
                 <button
                   onClick={refreshChainData}
                   disabled={chainBalanceLoading}
                   className="text-white/60 hover:text-white transition-colors p-1"
-                  title="Refresh balance"
+                  title="Refresh balances"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${chainBalanceLoading ? "animate-spin" : ""}`} />
                 </button>
               </div>
               <h2 className="text-4xl font-extrabold tracking-tight">
-                {chainBalanceLoading
-                  ? "Loading..."
-                  : chainData[blockchain]
-                    ? `$${chainData[blockchain].balance.toLocaleString()}`
-                    : "$0.00"}
+                ${Object.values(chainData).reduce((sum, c) => sum + c.balance, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
-              <div className="mt-12 flex justify-between items-center text-white/80">
+              <p className="text-white/40 font-bold uppercase tracking-widest text-[9px] mt-1">
+                Balance on {blockchain.replace(/-/g, " ")}: ${(chainData[blockchain]?.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <div className="mt-10 flex justify-between items-center text-white/80">
                 <div className="flex gap-2 items-center">
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                     <DollarSign className="h-4 w-4" />
