@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { BLOCKCHAINS } from "@/lib/circle/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain } = await import("@/lib/circle/client");
+    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain, requestFaucetFunds } = await import("@/lib/circle/client");
 
     let effectiveWalletId = profile.wallet_id || walletId || null;
     let walletExists = false;
@@ -48,12 +49,13 @@ export async function POST(request: NextRequest) {
       walletExists = false;
     }
 
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     if (!walletExists) {
       console.log(`Balance: wallet ${effectiveWalletId} not found on Circle for user ${user.id}. Creating...`);
-      const adminSupabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
       const newWallets = await createWalletsForUser(user.id);
       if (newWallets.length === 0) {
         return NextResponse.json(
@@ -71,22 +73,34 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", user.id);
       console.log(`Balance: created wallet ${effectiveWalletId} and updated profile.`);
-    } else if (effectiveWalletId !== walletId && profile.wallet_id !== walletId) {
-      // Profile had a different wallet_id than what the client sent — update the client's profile
-      const adminSupabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      await adminSupabase
-        .from("profiles")
-        .update({ wallet_id: effectiveWalletId })
-        .eq("id", user.id);
+    } else {
+      // Fix stale wallet_address in profile if it differs from Circle
+      if (effectiveWalletAddress && effectiveWalletAddress !== profile.wallet_address) {
+        await adminSupabase
+          .from("profiles")
+          .update({ wallet_address: effectiveWalletAddress })
+          .eq("id", user.id);
+        console.log(`Balance: fixed wallet_address mismatch (${profile.wallet_address} -> ${effectiveWalletAddress})`);
+      }
+      // Fix stale wallet_id in profile if it differs from the passed value
+      if (effectiveWalletId !== walletId && profile.wallet_id !== walletId) {
+        await adminSupabase
+          .from("profiles")
+          .update({ wallet_id: effectiveWalletId })
+          .eq("id", user.id);
+      }
     }
 
     // Fetch fresh balance from Circle API
     const balances = await getWalletBalanceForBlockchain(effectiveWalletId);
     const usdcBalance = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
     const balance = usdcBalance ? parseFloat(usdcBalance.amount) : 0;
+
+    // If wallet exists but has 0 USDC, request faucet funds (fire-and-forget)
+    if (walletExists && balance === 0 && effectiveWalletAddress) {
+      const chain = BLOCKCHAINS[0];
+      requestFaucetFunds(effectiveWalletAddress, chain.id);
+    }
 
     return NextResponse.json({
       success: true,
