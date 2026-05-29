@@ -96,10 +96,15 @@ export async function POST(request: NextRequest) {
     const usdcBalance = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
     const balance = usdcBalance ? parseFloat(usdcBalance.amount) : 0;
 
-    // If wallet exists but has 0 USDC, request faucet funds (fire-and-forget)
+    // If wallet exists but has 0 USDC, request faucet funds
     if (walletExists && balance === 0 && effectiveWalletAddress) {
       const chain = BLOCKCHAINS[0];
-      requestFaucetFunds(effectiveWalletAddress, chain.id);
+      try {
+        await requestFaucetFunds(effectiveWalletAddress, chain.id);
+        console.log(`Faucet requested for ${effectiveWalletAddress} on ${chain.id}`);
+      } catch (faucetError: any) {
+        console.warn(`Faucet request failed:`, faucetError.message);
+      }
     }
 
     return NextResponse.json({

@@ -37,18 +37,14 @@ export async function createEmbeddedWallet(userId: string): Promise<WalletInfo> 
 }
 
 export async function requestFaucetFunds(walletAddress: string, blockchain: string): Promise<void> {
-  try {
-    const client = getCircleClient();
-    await client.requestTestnetTokens({
-      address: walletAddress,
-      blockchain: blockchain as any,
-      usdc: true,
-      native: true,
-    });
-    console.log(`✅ Requested testnet tokens for ${walletAddress} on ${blockchain}`);
-  } catch (error: any) {
-    console.warn(`Failed to request testnet tokens:`, error.message);
-  }
+  const client = getCircleClient();
+  await client.requestTestnetTokens({
+    address: walletAddress,
+    blockchain: blockchain as any,
+    usdc: true,
+    native: true,
+  });
+  console.log(`✅ Requested testnet tokens for ${walletAddress} on ${blockchain}`);
 }
 
 export async function createWalletsForUser(userId: string): Promise<WalletInfo[]> {
@@ -71,8 +67,8 @@ export async function createWalletsForUser(userId: string): Promise<WalletInfo[]
       const wallet = response.data?.wallets?.[0];
       if (wallet) {
         wallets.push({ walletId: wallet.id, walletAddress: wallet.address, blockchain: wallet.blockchain });
-        // Auto-fund new wallets with testnet USDC and native tokens
-        requestFaucetFunds(wallet.address, wallet.blockchain);
+        // Auto-fund new wallets with testnet USDC and native tokens (fire-and-forget)
+        requestFaucetFunds(wallet.address, wallet.blockchain).catch(e => console.warn(`Faucet failed for new wallet:`, e.message));
       }
     } catch (error: any) {
       console.warn(`Failed to create wallet on ${chain.id}:`, error.message);
