@@ -35,8 +35,17 @@ interface Subscription {
   status: "active" | "paused" | "cancelled";
   cancel_at_period_end: boolean;
   retry_count: number;
+  start_date: string | null;
   next_billing_date: string;
   created_at: string;
+}
+
+function formatDateTime(dateStr: string) {
+  const d = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+  return d.toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
 }
 
 export default function Page() {
@@ -54,6 +63,7 @@ export default function Page() {
   const [recipientAddress, setRecipientAddress] = useState("");
   const [isValidRecipient, setIsValidRecipient] = useState(false);
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("monthly");
+  const [startDate, setStartDate] = useState("");
 
   const fetchUserSubscriptions = async () => {
     try {
@@ -105,7 +115,8 @@ export default function Page() {
           amount: parseFloat(amount),
           recipient_address: recipientAddress,
           frequency,
-          currency: "USDC"
+          currency: "USDC",
+          start_date: startDate ? new Date(startDate).toISOString() : undefined
         })
       });
 
@@ -118,6 +129,7 @@ export default function Page() {
         setAmount("");
         setRecipientAddress("");
         setFrequency("monthly");
+        setStartDate("");
         // Re-hydrate
         await fetchUserSubscriptions();
       } else {
@@ -183,6 +195,10 @@ export default function Page() {
     if (sub.frequency === "yearly") return acc + sub.amount / 12;
     return acc + sub.amount;
   }, 0);
+  const dailyVolume = activeSubscriptions.filter(s => s.frequency === "daily")
+    .reduce((acc, s) => acc + s.amount, 0);
+  const yearlyVolume = activeSubscriptions.filter(s => s.frequency === "yearly")
+    .reduce((acc, s) => acc + s.amount, 0);
 
   return (
     <div className="space-y-10 pb-12 px-4 md:px-6 relative">
@@ -206,19 +222,33 @@ export default function Page() {
       </div>
 
       {/* Analytics widgets */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-none shadow-premium bg-card overflow-hidden">
-          <CardContent className="p-6">
+          <CardContent className="p-5">
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Active Plans</p>
-            <h3 className="text-3xl font-black mt-2 text-foreground tracking-tight">{activeSubscriptions.length}</h3>
-            <p className="text-xs text-muted-foreground/60 mt-1 font-bold">Billing live cycles</p>
+            <h3 className="text-2xl font-black mt-2 text-foreground tracking-tight">{activeSubscriptions.length}</h3>
+            <p className="text-[10px] text-muted-foreground/60 mt-1 font-bold">Billing live cycles</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-premium bg-sky-500/10 border-l-4 border-sky-500 overflow-hidden">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-sky-700 uppercase tracking-widest">Daily Volume</p>
+            <h3 className="text-2xl font-black mt-2 text-sky-900 tracking-tight">${dailyVolume.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-sky-600/70 mt-1 font-bold">Sum of daily subscriptions</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-premium bg-emerald-500/10 border-l-4 border-emerald-500 overflow-hidden">
-          <CardContent className="p-6">
+          <CardContent className="p-5">
             <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Estimated MRR</p>
-            <h3 className="text-3xl font-black mt-2 text-emerald-900 tracking-tight">${activeMRR.toLocaleString()} USDC</h3>
-            <p className="text-xs text-emerald-600/70 mt-1 font-bold">Monthly Recurring Revenue projection</p>
+            <h3 className="text-2xl font-black mt-2 text-emerald-900 tracking-tight">${activeMRR.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-emerald-600/70 mt-1 font-bold">Monthly projection</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-premium bg-violet-500/10 border-l-4 border-violet-500 overflow-hidden">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest">Yearly Volume</p>
+            <h3 className="text-2xl font-black mt-2 text-violet-900 tracking-tight">${yearlyVolume.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-violet-600/70 mt-1 font-bold">Sum of yearly subscriptions</p>
           </CardContent>
         </Card>
       </div>
@@ -257,7 +287,7 @@ export default function Page() {
                     <div>
                       <p className="text-sm font-black text-foreground">{sub.name}</p>
                       <p className="text-[10px] font-mono text-muted-foreground mt-1">Recipient: {formatAddress(sub.recipient_address)}</p>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                         <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
                           sub.status === "active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/25" :
                           sub.status === "paused" ? "bg-amber-500/10 text-amber-500 border-amber-500/25" :
@@ -268,7 +298,17 @@ export default function Page() {
                         <span className="text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                           {sub.frequency}
                         </span>
-                        <span className="text-[10px] text-muted-foreground/50 font-bold">Next cycle: {new Date(sub.next_billing_date).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-muted-foreground/60 font-bold">
+                          Created: {formatDateTime(sub.created_at)}
+                        </span>
+                        {sub.start_date && (
+                          <span className="text-[10px] text-muted-foreground/60 font-bold">
+                            Starts: {formatDateTime(sub.start_date)}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground/50 font-bold">
+                          Next: {formatDateTime(sub.next_billing_date)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -421,6 +461,22 @@ export default function Page() {
                       <option value="monthly">Monthly</option>
                       <option value="yearly">Yearly</option>
                     </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subStartDate" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Start Date & Time (optional)</Label>
+                  <div className="relative group">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                      id="subStartDate"
+                      type="datetime-local"
+                      className="pl-11 h-12 bg-muted/40 border-none rounded-xl focus-visible:ring-primary/20 focus-visible:ring-offset-0 transition-all font-semibold text-sm"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      disabled={creating}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50 mt-1 ml-1">Leave empty to start immediately</p>
                 </div>
 
                 <div className="pt-4">

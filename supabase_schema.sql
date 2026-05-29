@@ -182,6 +182,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled')) NOT NULL,
   cancel_at_period_end BOOLEAN DEFAULT false NOT NULL,
   retry_count INTEGER DEFAULT 0 NOT NULL,
+  start_date TIMESTAMP WITH TIME ZONE,
   next_billing_date TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

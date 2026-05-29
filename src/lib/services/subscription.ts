@@ -14,6 +14,7 @@ export interface Subscription {
   status: "active" | "paused" | "cancelled";
   cancel_at_period_end: boolean;
   retry_count: number;
+  start_date: string | null;
   next_billing_date: string;
   created_at: string;
 }
@@ -27,17 +28,24 @@ const getAdminClient = () => {
 
 export async function createSubscription(
   userId: string,
-  data: Omit<Subscription, "id" | "user_id" | "created_at" | "status" | "next_billing_date" | "cancel_at_period_end" | "retry_count"> & { cancel_at_period_end?: boolean },
+  data: Omit<Subscription, "id" | "user_id" | "created_at" | "status" | "next_billing_date" | "cancel_at_period_end" | "retry_count" | "start_date"> & { cancel_at_period_end?: boolean; start_date?: string },
   supabase?: any
 ): Promise<Subscription> {
   const client = supabase || getAdminClient();
-  
-  // Calculate next billing date based on current time
-  const nextBilling = new Date();
-  if (data.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
-  else if (data.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
-  else if (data.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
-  else nextBilling.setDate(nextBilling.getDate() + 30); // Monthly DEFAULT (30 days)
+
+  let nextBilling: Date;
+  let startDate: string | null = null;
+
+  if (data.start_date) {
+    nextBilling = new Date(data.start_date);
+    startDate = nextBilling.toISOString();
+  } else {
+    nextBilling = new Date();
+    if (data.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
+    else if (data.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
+    else if (data.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
+    else nextBilling.setDate(nextBilling.getDate() + 30);
+  }
 
   const { data: inserted, error } = await client
     .from("subscriptions")
@@ -51,6 +59,7 @@ export async function createSubscription(
       status: "active",
       cancel_at_period_end: data.cancel_at_period_end || false,
       retry_count: 0,
+      start_date: startDate,
       next_billing_date: nextBilling.toISOString()
     })
     .select()

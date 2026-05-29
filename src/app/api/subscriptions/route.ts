@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const user = session.user;
 
     const body = await request.json();
-    const { name, amount, currency, recipient_address, frequency, cancel_at_period_end } = body;
+    const { name, amount, currency, recipient_address, frequency, cancel_at_period_end, start_date } = body;
     const requestUserId = body.userId || body.user_id;
 
     if (requestUserId && requestUserId !== user.id) {
@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       currency: currency || "USDC",
       recipient_address: resolvedRecipientAddress,
       frequency,
-      cancel_at_period_end: cancel_at_period_end === true
+      cancel_at_period_end: cancel_at_period_end === true,
+      start_date: start_date || undefined
     }, supabase);
 
     return NextResponse.json({ success: true, subscription });
