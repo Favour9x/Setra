@@ -179,7 +179,7 @@ export async function syncInboundTransactions(
         sourceAddress: tx.sourceAddress,
         destinationAddress: tx.destinationAddress,
       },
-      created_at: new Date().toISOString(),
+      created_at: tx.createDate || tx.updateDate || new Date().toISOString(),
     });
     syncedCount++;
   }
