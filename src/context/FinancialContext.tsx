@@ -221,11 +221,23 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
       // Get wallet ID and address - set state immediately
       if (currentWalletId) {
-        console.log('💰 FinancialContext: Setting wallet state:', { walletId: currentWalletId, address: currentWalletAddress });
-        setWalletId(currentWalletId);
+        let resolvedWalletId = currentWalletId;
+        let resolvedWalletAddress = currentWalletAddress;
+
+        // If the balance response returned a corrected walletId, use that
+        if (balanceData && balanceData.success && balanceData.walletId && balanceData.walletId !== currentWalletId) {
+          resolvedWalletId = balanceData.walletId;
+          if (balanceData.walletAddress) {
+            resolvedWalletAddress = balanceData.walletAddress;
+          }
+          console.log('💰 FinancialContext: Corrected walletId from balance API:', { oldId: currentWalletId, newId: resolvedWalletId });
+        }
+
+        console.log('💰 FinancialContext: Setting wallet state:', { walletId: resolvedWalletId, address: resolvedWalletAddress });
+        setWalletId(resolvedWalletId);
         
-        if (currentWalletAddress) {
-          setWalletAddress(currentWalletAddress);
+        if (resolvedWalletAddress) {
+          setWalletAddress(resolvedWalletAddress);
         }
         
         if (balanceData && balanceData.success && typeof balanceData.balance === 'number') {
@@ -457,6 +469,14 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           const balanceData = await balanceResponse.json();
           if (typeof balanceData.balance === 'number') {
             console.log(`✅ Balance from Circle API: $${balanceData.balance}`);
+            // If the server corrected our walletId, update state
+            if (balanceData.walletId && balanceData.walletId !== walletId) {
+              setWalletId(balanceData.walletId);
+              if (balanceData.walletAddress) {
+                setWalletAddress(balanceData.walletAddress);
+              }
+              console.log('💰 refreshBalance: Corrected walletId:', { old: walletId, new: balanceData.walletId });
+            }
             return balanceData.balance;
           }
         }
@@ -539,6 +559,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
               if (typeof balanceData.balance === 'number' && balanceData.balance >= 0) {
                 console.log(`💰 Realtime: Balance from Circle API: $${balanceData.balance}`);
                 setState(prev => ({ ...prev, balance: balanceData.balance }));
+              }
+              if (balanceData.walletId && balanceData.walletId !== walletId) {
+                setWalletId(balanceData.walletId);
+                if (balanceData.walletAddress) {
+                  setWalletAddress(balanceData.walletAddress);
+                }
               }
             }
           } catch (error) {
@@ -642,6 +668,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
               }
               return { ...prev, balance: balanceData.balance };
             });
+          }
+          if (balanceData.walletId && balanceData.walletId !== walletId) {
+            setWalletId(balanceData.walletId);
+            if (balanceData.walletAddress) {
+              setWalletAddress(balanceData.walletAddress);
+            }
           }
         }
       } catch (error) {
