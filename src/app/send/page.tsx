@@ -18,7 +18,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useSearchParams } from "next/navigation";
 
 function SendPageContent() {
-  const { balance, refreshData, walletAddress } = useFinancial();
+  const { refreshData, walletAddress } = useFinancial();
   const { user } = useAuth();
   const { notify } = useNotify();
   const searchParams = useSearchParams();
@@ -30,6 +30,7 @@ function SendPageContent() {
   const [blockchain, setBlockchain] = useState("ARC-TESTNET");
   const [completed, setCompleted] = useState(false);
   const [chainBalances, setChainBalances] = useState<Record<string, number>>({});
+  const [chainBalanceLoading, setChainBalanceLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -57,8 +58,9 @@ function SendPageContent() {
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
 
-  // Fetch per-chain balances on mount
+  // Fetch per-chain balances on mount and when blockchain changes
   useEffect(() => {
+    setChainBalanceLoading(true);
     (async () => {
       try {
         const res = await fetch("/api/wallet/chain-balances");
@@ -72,9 +74,11 @@ function SendPageContent() {
         }
       } catch {
         // silent
+      } finally {
+        setChainBalanceLoading(false);
       }
     })();
-  }, []);
+  }, [blockchain]);
 
   // Cleanup scanner on unmount
   useEffect(() => {
@@ -180,14 +184,13 @@ function SendPageContent() {
     }
 
     const chainBalance = chainBalances[blockchain];
-    const effectiveBalance = chainBalance ?? balance;
 
-    if (effectiveBalance === null || effectiveBalance === undefined) {
+    if (chainBalance === undefined) {
       notify("Balance is loading. Please wait a moment.");
       return;
     }
 
-    if (numAmount > effectiveBalance) {
+    if (numAmount > chainBalance) {
       notify(`Insufficient balance on ${blockchain.replace("-", " ")} for this transaction`);
       return;
     }
@@ -377,11 +380,11 @@ function SendPageContent() {
                 Balance on {blockchain.replace(/-/g, " ")}
               </p>
               <h2 className="text-4xl font-extrabold tracking-tight">
-                {chainBalances[blockchain] !== undefined
-                  ? `$${chainBalances[blockchain].toLocaleString()}`
-                  : balance !== null
-                    ? `$${balance.toLocaleString()}`
-                    : "Loading..."}
+                {chainBalanceLoading
+                  ? "Loading..."
+                  : chainBalances[blockchain] !== undefined
+                    ? `$${chainBalances[blockchain].toLocaleString()}`
+                    : "$0.00"}
               </h2>
               <div className="mt-12 flex justify-between items-center text-white/80">
                 <div className="flex gap-2 items-center">
