@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFinancial } from "@/context/FinancialContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useNotify } from "@/components/ui/notification";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
@@ -221,8 +222,11 @@ export function SettingsModal() {
     setLoading(false);
   };
 
+  const { setThemeMode } = useTheme();
+
   const handleThemeChange = (theme: "light" | "dark" | "system") => {
     updateSettings({ theme });
+    setThemeMode(theme);
     notify(`Interface adjusted to ${theme} mode`);
   };
 
