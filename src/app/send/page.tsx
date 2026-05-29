@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useFinancial } from "@/context/FinancialContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotify } from "@/components/ui/notification";
-import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, Network } from "lucide-react";
+import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, Network, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { RecipientInput } from "@/components/ui/RecipientInput";
@@ -29,7 +29,7 @@ function SendPageContent() {
   const [category, setCategory] = useState("Transfer");
   const [blockchain, setBlockchain] = useState("ARC-TESTNET");
   const [completed, setCompleted] = useState(false);
-  const [chainData, setChainData] = useState<Record<string, { balance: number; walletId: string; walletAddress: string }>>({});
+  const [chainData, setChainData] = useState<Record<string, { balance: number; walletId: string; walletAddress: string; source?: string }>>({});
   const [chainBalanceLoading, setChainBalanceLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
@@ -58,17 +58,22 @@ function SendPageContent() {
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
 
-  // Fetch per-chain wallets and balances once on mount
+  // Fetch per-chain wallets and balances once on mount,
+  // then poll every 30s to stay fresh
   useEffect(() => {
-    setChainBalanceLoading(true);
-    (async () => {
+    const fetchChainBalances = async () => {
       try {
         const res = await fetch("/api/wallet/chain-balances");
         const data = await res.json();
         if (data.chains) {
-          const map: Record<string, { balance: number; walletId: string; walletAddress: string }> = {};
+          const map: Record<string, { balance: number; walletId: string; walletAddress: string; source?: string }> = {};
           for (const c of data.chains) {
-            map[c.blockchain] = { balance: c.usdcBalance, walletId: c.walletId, walletAddress: c.walletAddress };
+            map[c.blockchain] = {
+              balance: c.usdcBalance,
+              walletId: c.walletId,
+              walletAddress: c.walletAddress,
+              source: c.source,
+            };
           }
           setChainData(map);
         }
@@ -77,7 +82,12 @@ function SendPageContent() {
       } finally {
         setChainBalanceLoading(false);
       }
-    })();
+    };
+
+    setChainBalanceLoading(true);
+    fetchChainBalances();
+    const interval = setInterval(fetchChainBalances, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Refresh chain data manually
@@ -87,9 +97,14 @@ function SendPageContent() {
       const res = await fetch("/api/wallet/chain-balances");
       const data = await res.json();
       if (data.chains) {
-        const map: Record<string, { balance: number; walletId: string; walletAddress: string }> = {};
+        const map: Record<string, { balance: number; walletId: string; walletAddress: string; source?: string }> = {};
         for (const c of data.chains) {
-          map[c.blockchain] = { balance: c.usdcBalance, walletId: c.walletId, walletAddress: c.walletAddress };
+          map[c.blockchain] = {
+            balance: c.usdcBalance,
+            walletId: c.walletId,
+            walletAddress: c.walletAddress,
+            source: c.source,
+          };
         }
         setChainData(map);
       }
@@ -385,9 +400,24 @@ function SendPageContent() {
           <Card className="border-none shadow-premium bg-primary text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <CardContent className="p-8 relative z-10">
-              <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] mb-2">
-                Balance on {blockchain.replace(/-/g, " ")}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
+                  Balance on {blockchain.replace(/-/g, " ")}
+                {chainData[blockchain]?.source && (
+                  <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10">
+                    {chainData[blockchain].source}
+                  </span>
+                )}
               </p>
+                <button
+                  onClick={refreshChainData}
+                  disabled={chainBalanceLoading}
+                  className="text-white/60 hover:text-white transition-colors p-1"
+                  title="Refresh balance"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${chainBalanceLoading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
               <h2 className="text-4xl font-extrabold tracking-tight">
                 {chainBalanceLoading
                   ? "Loading..."
