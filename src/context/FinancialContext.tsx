@@ -439,19 +439,14 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       fetchData().then(() => {
         initialFetchDone.current = user.id;
       }).catch(() => {
-        // Allow retry on next render if fetch fails
         console.warn("⚠️ Initial fetch failed, will retry on re-render");
       });
     }
   }, [user, fetchData]);
 
   // Dedicated balance refresh function with retry mechanism
+  // Fully self-healing: does NOT require walletId — the server looks it up or creates it
   const refreshBalance = useCallback(async () => {
-    if (!walletId || !supabase) {
-      console.log('⚠️ Cannot refresh balance: no walletId or supabase');
-      return;
-    }
-
     console.log('🔄 Refreshing balance with retry mechanism...');
     
     const fetchBalanceWithRetry = async (attempt: number = 1, maxAttempts: number = 3): Promise<number> => {
@@ -462,14 +457,14 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           credentials: 'include',
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletId }),
+          body: JSON.stringify({ walletId: walletId || '' }),
         });
         
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
           if (typeof balanceData.balance === 'number') {
             console.log(`✅ Balance from Circle API: $${balanceData.balance}`);
-            // If the server corrected our walletId, update state
+            // If the server corrected or created our walletId, update state
             if (balanceData.walletId && balanceData.walletId !== walletId) {
               setWalletId(balanceData.walletId);
               if (balanceData.walletAddress) {
@@ -513,15 +508,16 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       console.log(`🎯 Setting balance to Circle API value: $${newBalance} (was $${prev.balance})`);
       return { ...prev, balance: newBalance };
     });
-  }, [walletId, supabase]);
+  }, [walletId]);
 
-  // Auto-fetch balance as soon as walletId is available (separate from slow monolithic fetchData)
+  // Auto-fetch balance on mount and whenever user changes
+  // refreshBalance is self-healing — handles wallet creation/lookup on the server
   useEffect(() => {
-    if (walletId && user) {
-      console.log('💰 Auto-fetching balance on wallet ID availability');
+    if (user) {
+      console.log('💰 Auto-fetching balance');
       refreshBalance();
     }
-  }, [walletId, user, refreshBalance]);
+  }, [user, refreshBalance]);
 
   // Set up realtime listener for transactions and auto-refresh balance
   useEffect(() => {
@@ -646,8 +642,9 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, supabase, walletId]);
 
   // Periodic polling as fallback for Realtime (every 30s)
+  // Self-healing: calls balance endpoint which handles wallet creation if needed
   useEffect(() => {
-    if (!walletId || !user) return;
+    if (!user) return;
 
     console.log('⏰ Setting up periodic balance poll (30s interval)');
     const interval = setInterval(async () => {
@@ -657,7 +654,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           credentials: 'include',
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletId }),
+          body: JSON.stringify({ walletId: walletId || '' }),
         });
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
@@ -685,7 +682,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       console.log('⏰ Cleaning up periodic poll');
       clearInterval(interval);
     };
-  }, [walletId, user]);
+  }, [user]);
 
   const updateTransactionStatus = useCallback((id: string, status: TransactionStatus, message?: string) => {
     setState(prev => ({

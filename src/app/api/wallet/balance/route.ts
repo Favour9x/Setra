@@ -6,13 +6,6 @@ export async function POST(request: NextRequest) {
   try {
     const { walletId } = await request.json();
 
-    if (!walletId) {
-      return NextResponse.json(
-        { error: "Wallet ID is required" },
-        { status: 400 }
-      );
-    }
-
     const supabase = await createServerSupabase();
 
     const {
@@ -40,15 +33,9 @@ export async function POST(request: NextRequest) {
 
     const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain } = await import("@/lib/circle/client");
 
-    let effectiveWalletId = walletId;
+    let effectiveWalletId = profile.wallet_id || walletId || null;
     let walletExists = false;
-
     let effectiveWalletAddress = profile.wallet_address || null;
-
-    // Use profile's wallet_id as source of truth if available
-    if (profile.wallet_id) {
-      effectiveWalletId = profile.wallet_id;
-    }
 
     // Verify the wallet exists on Circle
     try {

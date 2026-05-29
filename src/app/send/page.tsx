@@ -17,7 +17,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useSearchParams } from "next/navigation";
 
 function SendPageContent() {
-  const { refreshData, walletAddress, balance, walletId } = useFinancial();
+  const { refreshData, refreshBalance, walletAddress, balance, walletId } = useFinancial();
   const { user } = useAuth();
   const { notify } = useNotify();
   const searchParams = useSearchParams();
@@ -56,10 +56,7 @@ function SendPageContent() {
 
   const handleRefreshBalance = async () => {
     setRefreshingBalance(true);
-    try {
-      const res = await fetch('/api/wallet/chain-balances');
-      await res.json();
-    } catch {}
+    await refreshBalance();
     setRefreshingBalance(false);
   };
 
