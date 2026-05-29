@@ -220,11 +220,10 @@ export default function Page() {
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <p className="text-secondary font-black text-[10px] uppercase tracking-[0.4em] mb-3">Recurring Cashflows</p>
           <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase leading-none">
             Subscriptions & <span className="text-primary italic">Recurrings</span>
           </h1>
-          <p className="text-muted-foreground mt-3 text-lg font-medium opacity-80 max-w-xl">Configure monthly subscription rates and automate recurring payouts.</p>
+          <p className="text-muted-foreground mt-3 text-lg font-medium opacity-80 max-w-xl">Manage and track all your recurring payments in one place.</p>
         </div>
         <div>
           <Button 
@@ -242,7 +241,7 @@ export default function Page() {
           <CardContent className="p-5">
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Active Plans</p>
             <h3 className="text-2xl font-black mt-2 text-foreground tracking-tight">{activeSubscriptions.length}</h3>
-            <p className="text-[10px] text-muted-foreground/60 mt-1 font-bold">Billing live cycles</p>
+            <p className="text-[10px] text-muted-foreground/60 mt-1 font-bold">Billing cycle</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-premium bg-sky-500/10 border-l-4 border-sky-500 overflow-hidden">
@@ -254,9 +253,9 @@ export default function Page() {
         </Card>
         <Card className="border-none shadow-premium bg-emerald-500/10 border-l-4 border-emerald-500 overflow-hidden">
           <CardContent className="p-5">
-            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Estimated MRR</p>
+            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Monthly Volume</p>
             <h3 className="text-2xl font-black mt-2 text-emerald-900 tracking-tight">${activeMRR.toLocaleString()} USDC</h3>
-            <p className="text-[10px] text-emerald-600/70 mt-1 font-bold">Monthly projection</p>
+            <p className="text-[10px] text-emerald-600/70 mt-1 font-bold">Sum of monthly subscriptions</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-premium bg-violet-500/10 border-l-4 border-violet-500 overflow-hidden">
