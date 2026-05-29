@@ -220,7 +220,9 @@ export async function listUserWallets(userId: string): Promise<WalletInfo[]> {
   if (!walletSetId) return [];
 
   const results: WalletInfo[] = [];
+  const seenKeys = new Set<string>();
 
+  // First pass: try to find wallets by refId for each chain
   for (const chain of BLOCKCHAINS) {
     try {
       const response = await client.listWallets({
@@ -229,7 +231,34 @@ export async function listUserWallets(userId: string): Promise<WalletInfo[]> {
       });
       const wallet = response.data?.wallets?.[0];
       if (wallet) {
-        results.push({ walletId: wallet.id, walletAddress: wallet.address, blockchain: wallet.blockchain });
+        const key = `${wallet.blockchain}:${wallet.id}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          results.push({ walletId: wallet.id, walletAddress: wallet.address, blockchain: wallet.blockchain });
+        }
+      }
+    } catch {
+    }
+  }
+
+  // Second pass: if any chains are missing, fetch all wallets in the set and match by blockchain
+  const foundBlockchains = new Set(results.map((r) => r.blockchain));
+  const missingChains = BLOCKCHAINS.filter((c) => !foundBlockchains.has(c.id));
+
+  if (missingChains.length > 0) {
+    try {
+      const allResponse = await client.listWallets({ walletSetId });
+      const allWallets = allResponse.data?.wallets || [];
+
+      for (const chain of missingChains) {
+        const match = allWallets.find((w: any) => w.blockchain === chain.id);
+        if (match) {
+          const key = `${match.blockchain}:${match.id}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            results.push({ walletId: match.id, walletAddress: match.address, blockchain: match.blockchain });
+          }
+        }
       }
     } catch {
     }
