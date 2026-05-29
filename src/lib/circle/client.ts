@@ -132,6 +132,14 @@ export interface InboundTx {
   timestamp: string;
 }
 
+function ensureUTCDate(dateStr: string | undefined): string {
+  if (!dateStr) return new Date().toISOString();
+  const s = String(dateStr).trim();
+  if (/[Z+-]\d\d(:?\d\d)?$/.test(s)) return s;
+  if (s.endsWith("Z")) return s;
+  return s + "Z";
+}
+
 export async function syncInboundTransactions(
   adminClient: any,
   walletId: string,
@@ -179,7 +187,7 @@ export async function syncInboundTransactions(
         sourceAddress: tx.sourceAddress,
         destinationAddress: tx.destinationAddress,
       },
-      created_at: tx.createDate || tx.updateDate || new Date().toISOString(),
+      created_at: ensureUTCDate(tx.createDate || tx.updateDate),
     });
     syncedCount++;
   }

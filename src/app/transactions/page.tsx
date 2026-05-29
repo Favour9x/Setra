@@ -157,14 +157,22 @@ export default async function Page({
                     </div>
 
                     <div className="text-xs text-muted-foreground sm:px-4">
-                      {new Date(tx.createdAt).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
+                      {(() => {
+                        const raw = tx.createdAt;
+                        if (!raw) return "";
+                        const rawStr = String(raw);
+                        const hasTz = /[Z+-]\d\d(:?\d\d)?$/.test(rawStr);
+                        const safe = hasTz ? rawStr : rawStr + "Z";
+                        const d = new Date(safe);
+                        return isNaN(d.getTime()) ? rawStr : d.toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        });
+                      })()}
                     </div>
 
                     <div className={`text-sm font-bold sm:px-4 ${tx.type === "received" ? "text-emerald-600" : "text-foreground"}`}>

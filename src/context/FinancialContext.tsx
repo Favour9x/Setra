@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { FinancialState, Transaction, Activity, UserSettings, TransactionStatus, UserProfile } from "@/types";
 import { createClient } from "@/lib/supabase-client";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useNotify } from "@/components/ui/notification";
 import { formatAddress } from "@/lib/utils";
 
@@ -70,6 +71,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const initialFetchDone = useRef<string | null>(null);
   const { user } = useAuth();
   const { notify } = useNotify();
+  const { setThemeMode } = useTheme();
   
   // Safe Supabase client creation with error handling - useMemo to prevent re-creation
   const supabase = React.useMemo(() => {
@@ -93,12 +95,17 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     const savedSettings = localStorage.getItem(`${STORAGE_KEY_SETTINGS}_${user.id}`);
     const savedProfile = localStorage.getItem(`${STORAGE_KEY_PROFILE}_${user.id}`);
     
+    let themeFromStorage: string | null = null;
     setState(prev => {
       let nextSettings = prev.settings;
       let nextProfile = prev.profile;
 
       if (savedSettings) {
-        try { nextSettings = { ...prev.settings, ...JSON.parse(savedSettings) }; } catch (e) {}
+        try {
+          const parsed = JSON.parse(savedSettings);
+          nextSettings = { ...prev.settings, ...parsed };
+          themeFromStorage = parsed.theme || null;
+        } catch (e) {}
       } else {
         nextSettings = DEFAULT_SETTINGS;
       }
@@ -110,7 +117,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
       return { ...prev, settings: nextSettings, profile: nextProfile };
     });
-  }, [user]);
+    // Sync theme from local settings to ThemeContext immediately
+    if (themeFromStorage) {
+      setThemeMode(themeFromStorage as any);
+    }
+  }, [user, setThemeMode]);
 
   // Handle data fetching and wallet creation
   const fetchData = useCallback(async (showLoading = true) => {
@@ -370,13 +381,15 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       setUsername(currentUsername);
       setUsernameChangedAt(currentUsernameChangedAt);
 
+      const dbTheme = dbSettings?.theme || 'system';
+
       setState(prev => {
         let nextSettings = prev.settings;
         let nextProfile = prev.profile;
 
         if (dbSettings) {
           nextSettings = {
-            theme: dbSettings.theme || 'system',
+            theme: dbTheme,
             notificationsEnabled: dbSettings.notifications_enabled ?? true,
             currency: dbSettings.currency || 'USD',
             biometricEnabled: dbSettings.biometric_enabled ?? true,
@@ -411,6 +424,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         };
       });
       
+      setThemeMode(dbTheme as any);
       console.log('✅ FinancialContext: Data fetch complete');
     } catch (e: any) {
       console.error("❌ FinancialContext: Sync error:", e);
@@ -815,6 +829,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(`${STORAGE_KEY_SETTINGS}_${user.id}`, JSON.stringify(updated));
       return { ...prev, settings: updated };
     });
+    // Sync theme to ThemeContext's storage for cross-session persistence
+    if (newSettings.theme) {
+      try { localStorage.setItem("setra_theme", newSettings.theme); } catch {}
+      setThemeMode(newSettings.theme);
+    }
 
     if (!supabase) {
       console.warn('Supabase not available - settings saved locally only');
