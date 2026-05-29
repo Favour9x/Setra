@@ -25,7 +25,7 @@ export async function GET() {
     steps.profile = { found: !!profile, wallet_id: profile?.wallet_id, wallet_address: profile?.wallet_address, error: profileError?.message };
 
     // Step 3: Try wallet lookup on Circle
-    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain } = await import("@/lib/circle/client");
+    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain, requestFaucetFunds } = await import("@/lib/circle/client");
     
     let walletId = profile?.wallet_id || null;
     let walletExists = false;
@@ -62,14 +62,28 @@ export async function GET() {
     }
 
     // Step 5: Get balance
+    let currentBalance = 0;
     if (walletId) {
       try {
         const balances = await getWalletBalanceForBlockchain(walletId);
         const usdc = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
+        currentBalance = parseFloat(usdc?.amount || "0");
         steps.balance = { tokensFound: balances.length, usdcAmount: usdc?.amount || "0", allTokens: balances };
       } catch (err: any) {
         steps.balance = { error: err.message };
       }
+    }
+
+    // Step 6: Try faucet if balance is 0 and wallet exists
+    if (walletExists && currentBalance === 0 && steps.walletLookup?.address) {
+      try {
+        await requestFaucetFunds(steps.walletLookup.address, steps.walletLookup.blockchain);
+        steps.faucet = { success: true, address: steps.walletLookup.address, blockchain: steps.walletLookup.blockchain, message: "Faucet request sent" };
+      } catch (err: any) {
+        steps.faucet = { success: false, address: steps.walletLookup.address, blockchain: steps.walletLookup.blockchain, error: err.message };
+      }
+    } else {
+      steps.faucet = { skipped: true, reason: walletExists ? (currentBalance > 0 ? "Balance already positive" : "No wallet address") : "No wallet" };
     }
 
     return NextResponse.json({ steps, success: true });
