@@ -48,23 +48,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch the user's profile and check wallet ownership
-    const { data: profile, error: profileError } = await supabaseUserClient
-      .from("profiles")
-      .select("wallet_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
+    // Verify the wallet belongs to the user by checking their wallet set
+    const { listUserWallets } = await import("@/lib/circle/client");
+    const userWallets = await listUserWallets(user.id);
+    const validWalletIds = new Set(userWallets.map((w: any) => w.walletId));
+    if (!validWalletIds.has(walletId)) {
       return NextResponse.json(
-        { error: "Failed to verify wallet ownership" },
-        { status: 500 }
-      );
-    }
-
-    if (profile.wallet_id !== walletId) {
-      return NextResponse.json(
-        { error: "Wrong user" },
+        { error: "Wallet not found for this user" },
         { status: 403 }
       );
     }

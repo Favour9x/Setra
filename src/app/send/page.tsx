@@ -29,7 +29,7 @@ function SendPageContent() {
   const [category, setCategory] = useState("Transfer");
   const [blockchain, setBlockchain] = useState("ARC-TESTNET");
   const [completed, setCompleted] = useState(false);
-  const [chainBalances, setChainBalances] = useState<Record<string, number>>({});
+  const [chainData, setChainData] = useState<Record<string, { balance: number; walletId: string; walletAddress: string }>>({});
   const [chainBalanceLoading, setChainBalanceLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
@@ -58,7 +58,7 @@ function SendPageContent() {
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
 
-  // Fetch all chain balances once on mount
+  // Fetch per-chain wallets and balances once on mount
   useEffect(() => {
     setChainBalanceLoading(true);
     (async () => {
@@ -66,11 +66,11 @@ function SendPageContent() {
         const res = await fetch("/api/wallet/chain-balances");
         const data = await res.json();
         if (data.chains) {
-          const map: Record<string, number> = {};
+          const map: Record<string, { balance: number; walletId: string; walletAddress: string }> = {};
           for (const c of data.chains) {
-            map[c.blockchain] = c.usdcBalance;
+            map[c.blockchain] = { balance: c.usdcBalance, walletId: c.walletId, walletAddress: c.walletAddress };
           }
-          setChainBalances(map);
+          setChainData(map);
         }
       } catch {
         // silent
@@ -80,18 +80,18 @@ function SendPageContent() {
     })();
   }, []);
 
-  // Refresh balance for currently selected chain
-  const refreshChainBalance = async () => {
+  // Refresh chain data manually
+  const refreshChainData = async () => {
     setChainBalanceLoading(true);
     try {
       const res = await fetch("/api/wallet/chain-balances");
       const data = await res.json();
       if (data.chains) {
-        const map: Record<string, number> = {};
+        const map: Record<string, { balance: number; walletId: string; walletAddress: string }> = {};
         for (const c of data.chains) {
-          map[c.blockchain] = c.usdcBalance;
+          map[c.blockchain] = { balance: c.usdcBalance, walletId: c.walletId, walletAddress: c.walletAddress };
         }
-        setChainBalances(map);
+        setChainData(map);
       }
     } catch {
       // silent
@@ -203,37 +203,26 @@ function SendPageContent() {
       return;
     }
 
-    const chainBalance = chainBalances[blockchain];
+    const chainInfo = chainData[blockchain];
 
-    if (chainBalance === undefined) {
-      notify("Balance is loading. Please wait a moment.");
+    if (!chainInfo?.walletId) {
+      notify(`No wallet found for ${blockchain.replace(/-/g, " ")}. Please create a wallet first.`);
       return;
     }
 
-    if (numAmount > chainBalance) {
-      notify(`Insufficient balance on ${blockchain.replace("-", " ")} for this transaction`);
+    if (numAmount > chainInfo.balance) {
+      notify(`Insufficient balance on ${blockchain.replace(/-/g, " ")} for this transaction`);
       return;
     }
 
     setLoading(true);
     try {
-      const profileRes = await fetch('/api/user/profile', { credentials: 'include' });
-      const profileData = await profileRes.json();
-      const profile = profileData.profile;
-
-      const walletId = profile?.wallet_id;
-      if (!walletId) {
-        notify("Wallet not found. Please contact support.");
-        setLoading(false);
-        return;
-      }
-
       const response = await fetch('/api/payments/send', {
         credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletId,
+          walletId: chainInfo.walletId,
           toAddress: recipient,
           amount: amount,
           userId: user.id,
@@ -402,8 +391,8 @@ function SendPageContent() {
               <h2 className="text-4xl font-extrabold tracking-tight">
                 {chainBalanceLoading
                   ? "Loading..."
-                  : chainBalances[blockchain] !== undefined
-                    ? `$${chainBalances[blockchain].toLocaleString()}`
+                  : chainData[blockchain]
+                    ? `$${chainData[blockchain].balance.toLocaleString()}`
                     : "$0.00"}
               </h2>
               <div className="mt-12 flex justify-between items-center text-white/80">
