@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain, requestFaucetFunds } = await import("@/lib/circle/client");
+    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain, requestFaucetFunds, syncInboundTransactions } = await import("@/lib/circle/client");
 
     let effectiveWalletId = profile.wallet_id || walletId || null;
     let walletExists = false;
@@ -95,6 +95,15 @@ export async function POST(request: NextRequest) {
     const balances = await getWalletBalanceForBlockchain(effectiveWalletId);
     const usdcBalance = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
     const balance = usdcBalance ? parseFloat(usdcBalance.amount) : 0;
+
+    // Sync inbound transactions from Circle into local transactions table
+    if (effectiveWalletId && effectiveWalletAddress) {
+      try {
+        await syncInboundTransactions(adminSupabase, effectiveWalletId, effectiveWalletAddress, user.id);
+      } catch (syncError: any) {
+        console.warn("Inbound transaction sync failed:", syncError.message);
+      }
+    }
 
     // If wallet exists but has 0 USDC, request faucet funds
     if (walletExists && balance === 0 && effectiveWalletAddress) {

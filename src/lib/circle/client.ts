@@ -125,6 +125,71 @@ export async function getUSDCBalance(walletId: string): Promise<string> {
   return usdcBalance?.amount || "0";
 }
 
+export interface InboundTx {
+  txHash: string;
+  amount: string;
+  sourceAddress: string;
+  timestamp: string;
+}
+
+export async function syncInboundTransactions(
+  adminClient: any,
+  walletId: string,
+  walletAddress: string,
+  userId: string
+): Promise<number> {
+  const client = getCircleClient();
+  const response = await client.listTransactions({
+    walletIds: [walletId],
+  } as any);
+  const circleTxs = response.data?.transactions || [];
+
+  const inboundComplete = circleTxs.filter((tx: any) => {
+    if (tx.state !== "COMPLETE" || tx.operation !== "TRANSFER") return false;
+    const destAddr = String(tx.destinationAddress || "").toLowerCase();
+    return destAddr === walletAddress.toLowerCase();
+  });
+
+  let syncedCount = 0;
+  for (const tx of inboundComplete) {
+    const txHash = tx.txHash;
+    if (!txHash) continue;
+
+    const { data: existing } = await adminClient
+      .from("transactions")
+      .select("id")
+      .eq("tx_hash", txHash)
+      .maybeSingle();
+
+    if (existing) continue;
+
+    const txAmount = tx.amounts?.[0] || "0";
+    await adminClient.from("transactions").insert({
+      user_id: userId,
+      recipient: tx.sourceAddress || txHash,
+      amount: parseFloat(txAmount),
+      type: "income",
+      category: "Payment Received",
+      currency: "USDC",
+      status: "success",
+      tx_hash: txHash,
+      metadata: {
+        blockchain: "ARC-TESTNET",
+        circleTransactionId: tx.id,
+        sourceAddress: tx.sourceAddress,
+        destinationAddress: tx.destinationAddress,
+      },
+      created_at: new Date().toISOString(),
+    });
+    syncedCount++;
+  }
+
+  if (syncedCount > 0) {
+    console.log(`Synced ${syncedCount} inbound transaction(s) for wallet ${walletId}`);
+  }
+  return syncedCount;
+}
+
 export interface TransferResult {
   transactionId: string;
   status: string;
