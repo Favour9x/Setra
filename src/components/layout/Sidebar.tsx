@@ -26,7 +26,6 @@ import {
   ShieldAlert,
   Plus,
   History,
-  ArrowRightLeft,
   Repeat,
   PieChart,
   Bell,
@@ -212,7 +211,6 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
               {
                 label: "Tools",
                 items: [
-                  { title: "Bridge", href: "/bridge", icon: ArrowRightLeft },
                   { title: "Tips", href: "/tips", icon: HandCoins },
                   { title: "Subscriptions", href: "/subscriptions", icon: Repeat },
                 ],

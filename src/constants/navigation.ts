@@ -1,4 +1,4 @@
-import { Home, Send, History, Receipt, Settings, CreditCard, PieChart, Users, Bell, Search, LayoutDashboard, Repeat, Zap, HandCoins, ArrowRightLeft } from "lucide-react";
+import { Home, Send, History, Receipt, Settings, CreditCard, PieChart, Users, Bell, Search, LayoutDashboard, Repeat, Zap, HandCoins } from "lucide-react";
 
 export const NAVIGATION_ITEMS = [
   {
@@ -20,11 +20,6 @@ export const NAVIGATION_ITEMS = [
     title: "Invoices",
     href: "/invoices",
     icon: Receipt,
-  },
-  {
-    title: "Bridge",
-    href: "/bridge",
-    icon: ArrowRightLeft,
   },
   {
     title: "Tips",

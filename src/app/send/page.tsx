@@ -58,7 +58,7 @@ function SendPageContent() {
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
 
-  // Fetch per-chain balances on mount and when blockchain changes
+  // Fetch all chain balances once on mount
   useEffect(() => {
     setChainBalanceLoading(true);
     (async () => {
@@ -78,7 +78,27 @@ function SendPageContent() {
         setChainBalanceLoading(false);
       }
     })();
-  }, [blockchain]);
+  }, []);
+
+  // Refresh balance for currently selected chain
+  const refreshChainBalance = async () => {
+    setChainBalanceLoading(true);
+    try {
+      const res = await fetch("/api/wallet/chain-balances");
+      const data = await res.json();
+      if (data.chains) {
+        const map: Record<string, number> = {};
+        for (const c of data.chains) {
+          map[c.blockchain] = c.usdcBalance;
+        }
+        setChainBalances(map);
+      }
+    } catch {
+      // silent
+    } finally {
+      setChainBalanceLoading(false);
+    }
+  };
 
   // Cleanup scanner on unmount
   useEffect(() => {
