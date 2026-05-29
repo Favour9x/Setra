@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { executePayment } from "@/lib/payments";
 import { insertRecipientReceivedTransaction } from "@/lib/services/ledger";
+import { createNotification } from "@/lib/services/notification";
 
 export interface Subscription {
   id: string;
@@ -9,8 +10,10 @@ export interface Subscription {
   amount: number;
   currency: string;
   recipient_address: string;
-  frequency: "weekly" | "monthly" | "yearly";
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
   status: "active" | "paused" | "cancelled";
+  cancel_at_period_end: boolean;
+  retry_count: number;
   next_billing_date: string;
   created_at: string;
 }
@@ -24,14 +27,15 @@ const getAdminClient = () => {
 
 export async function createSubscription(
   userId: string,
-  data: Omit<Subscription, "id" | "user_id" | "created_at" | "status" | "next_billing_date">,
+  data: Omit<Subscription, "id" | "user_id" | "created_at" | "status" | "next_billing_date" | "cancel_at_period_end" | "retry_count"> & { cancel_at_period_end?: boolean },
   supabase?: any
 ): Promise<Subscription> {
   const client = supabase || getAdminClient();
   
   // Calculate next billing date based on current time
   const nextBilling = new Date();
-  if (data.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
+  if (data.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
+  else if (data.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
   else if (data.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
   else nextBilling.setDate(nextBilling.getDate() + 30); // Monthly DEFAULT (30 days)
 
@@ -45,6 +49,8 @@ export async function createSubscription(
       recipient_address: data.recipient_address,
       frequency: data.frequency || "monthly",
       status: "active",
+      cancel_at_period_end: data.cancel_at_period_end || false,
+      retry_count: 0,
       next_billing_date: nextBilling.toISOString()
     })
     .select()
@@ -92,6 +98,157 @@ export async function updateSubscriptionStatus(
     throw error;
   }
   return true;
+}
+
+export interface ProcessResult {
+  success: boolean;
+  id: string;
+  error?: string;
+  txHash?: string;
+  retry_count?: number;
+}
+
+export async function processDueSubscriptions(
+  client: any
+): Promise<{ processed: number; successful: number; failed: number; results: ProcessResult[] }> {
+  const now = new Date().toISOString();
+  const { data: dueSubscriptions, error: fetchError } = await client
+    .from("subscriptions")
+    .select("*")
+    .eq("status", "active")
+    .lte("next_billing_date", now);
+
+  if (fetchError) {
+    console.error("Failed to fetch due subscriptions:", fetchError);
+    throw fetchError;
+  }
+
+  if (!dueSubscriptions || dueSubscriptions.length === 0) {
+    return { processed: 0, successful: 0, failed: 0, results: [] };
+  }
+
+  const results: ProcessResult[] = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const subscription of dueSubscriptions) {
+    try {
+      const { data: profile } = await client
+        .from("profiles")
+        .select("wallet_id")
+        .eq("id", subscription.user_id)
+        .maybeSingle();
+
+      if (!profile?.wallet_id) {
+        failCount++;
+        results.push({ id: subscription.id, success: false, error: "No wallet found" });
+        continue;
+      }
+
+      const paymentResult = await executePayment({
+        fromWalletId: profile.wallet_id,
+        toAddress: subscription.recipient_address,
+        amount: String(subscription.amount),
+        type: "USDC"
+      });
+
+      if (!paymentResult.success) {
+        const newRetryCount = (subscription.retry_count || 0) + 1;
+        if (newRetryCount >= 3) {
+          await client
+            .from("subscriptions")
+            .update({ status: "paused", retry_count: newRetryCount })
+            .eq("id", subscription.id);
+          await createNotification(
+            subscription.user_id,
+            "subscription_paused",
+            "Subscription Auto-Paused",
+            `Subscription "${subscription.name}" was paused after ${newRetryCount} failed payment attempts`,
+            { subscription_id: subscription.id, retry_count: newRetryCount }
+          );
+        } else {
+          await client
+            .from("subscriptions")
+            .update({ retry_count: newRetryCount })
+            .eq("id", subscription.id);
+        }
+        failCount++;
+        results.push({ id: subscription.id, success: false, error: paymentResult.error, retry_count: newRetryCount });
+        continue;
+      }
+
+      await client
+        .from("subscriptions")
+        .update({ retry_count: 0 })
+        .eq("id", subscription.id);
+
+      const nextBilling = new Date(subscription.next_billing_date);
+      if (subscription.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
+      else if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
+      else if (subscription.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
+      else nextBilling.setDate(nextBilling.getDate() + 30);
+
+      await client
+        .from("subscriptions")
+        .update({ next_billing_date: nextBilling.toISOString() })
+        .eq("id", subscription.id);
+
+      if (paymentResult.txHash) {
+        const { data: existing } = await client
+          .from("transactions")
+          .select("id")
+          .eq("tx_hash", paymentResult.txHash)
+          .maybeSingle();
+
+        if (!existing) {
+          await client.from("transactions").insert({
+            user_id: subscription.user_id,
+            recipient: subscription.recipient_address,
+            amount: subscription.amount,
+            type: "expense",
+            category: "Subscription",
+            currency: "USDC",
+            status: "success",
+            tx_hash: paymentResult.txHash,
+            metadata: {
+              subscriptionId: subscription.id,
+              subscriptionName: subscription.name,
+              blockchain: "ARC-TESTNET",
+              transactionId: paymentResult.transactionId
+            },
+            created_at: new Date().toISOString()
+          });
+
+          await insertRecipientReceivedTransaction(client, {
+            destinationAddress: subscription.recipient_address,
+            amount: subscription.amount,
+            txHash: paymentResult.txHash,
+            category: "Subscription",
+            metadata: {
+              subscriptionId: subscription.id,
+              subscriptionName: subscription.name,
+            }
+          });
+        }
+      }
+
+      await createNotification(
+        subscription.user_id,
+        "subscription_renewed",
+        "Subscription Payment Processed",
+        `Subscription "${subscription.name}" payment of ${subscription.amount} USDC processed successfully`,
+        { subscription_id: subscription.id, amount: subscription.amount, tx_hash: paymentResult.txHash }
+      );
+
+      successCount++;
+      results.push({ id: subscription.id, success: true, txHash: paymentResult.txHash, retry_count: 0 });
+    } catch (error: any) {
+      failCount++;
+      results.push({ id: subscription.id, success: false, error: error.message });
+    }
+  }
+
+  return { processed: dueSubscriptions.length, successful: successCount, failed: failCount, results };
 }
 
 export async function processRenewal(
@@ -146,7 +303,8 @@ export async function processRenewal(
         console.log(`⚠️ Transaction ${paymentResult.txHash} already recorded, skipping duplicate`);
         // Still update subscription billing date
         const nextBilling = new Date(subscription.next_billing_date);
-        if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
+        if (subscription.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
+        else if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
         else if (subscription.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
         else nextBilling.setDate(nextBilling.getDate() + 30);
         
@@ -161,7 +319,8 @@ export async function processRenewal(
 
     // Calculate new next_billing_date
     const nextBilling = new Date(subscription.next_billing_date);
-    if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
+    if (subscription.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
+    else if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
     else if (subscription.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
     else nextBilling.setDate(nextBilling.getDate() + 30); // monthly (30 days)
 

@@ -15,7 +15,7 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
  */
 export async function createNotification(
   userId: string,
-  type: 'payment_received' | 'payment_sent' | 'invoice_created' | 'invoice_paid' | 'subscription_renewed' | 'workflow_executed' | 'payment_request',
+  type: 'payment_received' | 'payment_sent' | 'invoice_created' | 'invoice_paid' | 'subscription_renewed' | 'subscription_paused' | 'workflow_executed' | 'payment_request',
   title: string,
   message: string,
   metadata: any = {}

@@ -178,8 +178,10 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   amount NUMERIC NOT NULL,
   currency TEXT DEFAULT 'USDC' NOT NULL,
   recipient_address TEXT NOT NULL,
-  frequency TEXT DEFAULT 'monthly' CHECK (frequency IN ('weekly', 'monthly', 'yearly')) NOT NULL,
+  frequency TEXT DEFAULT 'monthly' CHECK (frequency IN ('daily', 'weekly', 'monthly', 'yearly')) NOT NULL,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled')) NOT NULL,
+  cancel_at_period_end BOOLEAN DEFAULT false NOT NULL,
+  retry_count INTEGER DEFAULT 0 NOT NULL,
   next_billing_date TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

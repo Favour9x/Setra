@@ -31,8 +31,10 @@ interface Subscription {
   amount: number;
   currency: string;
   recipient_address: string;
-  frequency: "weekly" | "monthly" | "yearly";
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
   status: "active" | "paused" | "cancelled";
+  cancel_at_period_end: boolean;
+  retry_count: number;
   next_billing_date: string;
   created_at: string;
 }
@@ -51,7 +53,7 @@ export default function Page() {
   const [amount, setAmount] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
   const [isValidRecipient, setIsValidRecipient] = useState(false);
-  const [frequency, setFrequency] = useState<"weekly" | "monthly" | "yearly">("monthly");
+  const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("monthly");
 
   const fetchUserSubscriptions = async () => {
     try {
@@ -72,20 +74,6 @@ export default function Page() {
 
   useEffect(() => {
     fetchUserSubscriptions();
-    
-    // Check for due subscriptions on page load
-    const checkDueSubscriptions = async () => {
-      try {
-        await fetch("/api/subscriptions/process", {
-          credentials: "include",
-          method: "POST"
-        });
-      } catch (err) {
-        console.log("Subscription check completed");
-      }
-    };
-    
-    checkDueSubscriptions();
   }, []);
 
   const handleCreateSubscription = async (e: React.FormEvent) => {
@@ -189,7 +177,12 @@ export default function Page() {
   };
 
   const activeSubscriptions = subscriptions.filter(s => s.status === "active");
-  const activeMRR = activeSubscriptions.reduce((acc, sub) => acc + sub.amount, 0);
+  const activeMRR = activeSubscriptions.reduce((acc, sub) => {
+    if (sub.frequency === "daily") return acc + sub.amount * 30;
+    if (sub.frequency === "weekly") return acc + sub.amount * 4.33;
+    if (sub.frequency === "yearly") return acc + sub.amount / 12;
+    return acc + sub.amount;
+  }, 0);
 
   return (
     <div className="space-y-10 pb-12 px-4 md:px-6 relative">
@@ -416,17 +409,18 @@ export default function Page() {
 
                 <div className="space-y-2">
                   <Label htmlFor="subFrequency" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Billing Cycle Frequency</Label>
-                  <select 
-                    id="subFrequency"
-                    className="w-full h-12 bg-muted/40 border-none rounded-xl focus-visible:ring-primary/20 focus-visible:ring-offset-0 transition-all font-semibold text-sm px-4 outline-none"
-                    value={frequency}
-                    onChange={(e) => setFrequency(e.target.value as any)}
-                    disabled={creating}
-                  >
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
+                    <select 
+                      id="subFrequency"
+                      className="w-full h-12 bg-muted/40 border-none rounded-xl focus-visible:ring-primary/20 focus-visible:ring-offset-0 transition-all font-semibold text-sm px-4 outline-none"
+                      value={frequency}
+                      onChange={(e) => setFrequency(e.target.value as any)}
+                      disabled={creating}
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
                 </div>
 
                 <div className="pt-4">

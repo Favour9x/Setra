@@ -18,9 +18,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { status } = await request.json();
+    const body = await request.json();
+    const { status, cancel_at_period_end } = body;
 
-    if (!status || !["active", "paused", "cancelled"].includes(status)) {
+    if (status && !["active", "paused", "cancelled"].includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
@@ -35,7 +36,22 @@ export async function PATCH(
       return NextResponse.json({ error: "Subscription not found or unauthorized" }, { status: 404 });
     }
 
-    await updateSubscriptionStatus(subscriptionId, status, supabase);
+    const updateData: Record<string, any> = {};
+    if (status) updateData.status = status;
+    if (cancel_at_period_end !== undefined) updateData.cancel_at_period_end = cancel_at_period_end;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    const { error: updateError } = await supabase
+      .from("subscriptions")
+      .update(updateData)
+      .eq("id", subscriptionId);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

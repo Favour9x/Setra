@@ -3,6 +3,10 @@
     {
       "path": "/api/workflows/cron",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/subscriptions/cron",
+      "schedule": "0 */6 * * *"
     }
   ]
 }
