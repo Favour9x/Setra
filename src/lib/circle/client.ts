@@ -12,38 +12,6 @@ export const BLOCKCHAINS = [
     chainId: 5042002,
     nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 6 },
   },
-  {
-    id: "ETH-SEPOLIA" as const,
-    name: "Ethereum Sepolia",
-    isTestnet: true,
-    usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-    chainId: 11155111,
-    nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-  },
-  {
-    id: "BASE-SEPOLIA" as const,
-    name: "Base Sepolia",
-    isTestnet: true,
-    usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    chainId: 84532,
-    nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-  },
-  {
-    id: "MATIC-AMOY" as const,
-    name: "Polygon Amoy",
-    isTestnet: true,
-    usdcAddress: "0x41e94eb019c0762f9bfcf9fb1e58725bfb0e7582",
-    chainId: 80002,
-    nativeCurrency: { name: "MATIC", symbol: "MATIC", decimals: 18 },
-  },
-  {
-    id: "ARB-SEPOLIA" as const,
-    name: "Arbitrum Sepolia",
-    isTestnet: true,
-    usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-    chainId: 421614,
-    nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-  },
 ];
 
 export type BlockchainInfo = typeof BLOCKCHAINS[number];
@@ -149,19 +117,16 @@ export async function sendToken(
   fromWalletId: string,
   toAddress: string,
   amount: string,
-  symbol: string = "USDC",
-  blockchain?: string
+  symbol: string = "USDC"
 ): Promise<TransferResult> {
   const client = getCircleClient();
   const walletResponse = await client.getWallet({ id: fromWalletId });
   const senderWalletAddress = walletResponse.data?.wallet?.address;
   if (!senderWalletAddress) throw new Error("Failed to get sender wallet address");
 
-  const chainConfig = blockchain
-    ? BLOCKCHAINS.find((c) => c.id === blockchain || c.name === blockchain)
-    : BLOCKCHAINS[0];
-  const chainId = chainConfig?.id || "ARC-TESTNET";
-  const tokenAddress = chainConfig?.usdcAddress || "0x3600000000000000000000000000000000000000";
+  const chainConfig = BLOCKCHAINS[0];
+  const chainId = chainConfig.id;
+  const tokenAddress = chainConfig.usdcAddress;
 
   const txResponse = await client.createTransaction({
     blockchain: chainId as any,
@@ -222,7 +187,6 @@ export async function listUserWallets(userId: string): Promise<WalletInfo[]> {
   const results: WalletInfo[] = [];
   const seenKeys = new Set<string>();
 
-  // First pass: try to find wallets by refId for each chain
   for (const chain of BLOCKCHAINS) {
     try {
       const response = await client.listWallets({
@@ -241,16 +205,11 @@ export async function listUserWallets(userId: string): Promise<WalletInfo[]> {
     }
   }
 
-  // Second pass: if any chains are missing, fetch all wallets in the set and match by blockchain
-  const foundBlockchains = new Set(results.map((r) => r.blockchain));
-  const missingChains = BLOCKCHAINS.filter((c) => !foundBlockchains.has(c.id));
-
-  if (missingChains.length > 0) {
+  if (results.length === 0) {
     try {
       const allResponse = await client.listWallets({ walletSetId });
       const allWallets = allResponse.data?.wallets || [];
-
-      for (const chain of missingChains) {
+      for (const chain of BLOCKCHAINS) {
         const match = allWallets.find((w: any) => w.blockchain === chain.id);
         if (match) {
           const key = `${match.blockchain}:${match.id}`;

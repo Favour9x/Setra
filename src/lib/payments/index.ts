@@ -5,7 +5,6 @@ export interface PaymentRequest {
   toAddress: string;
   amount: string;
   type: PaymentType;
-  blockchain?: string;
 }
 
 export interface PaymentResult {
@@ -31,8 +30,7 @@ export async function executePayment(
         request.fromWalletId,
         request.toAddress,
         request.amount,
-        "USDC",
-        request.blockchain
+        "USDC"
       );
 
       return {

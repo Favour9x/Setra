@@ -5,11 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFinancial } from "@/context/FinancialContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotify } from "@/components/ui/notification";
-import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, Network, RefreshCw } from "lucide-react";
+import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { RecipientInput } from "@/components/ui/RecipientInput";
@@ -18,7 +17,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useSearchParams } from "next/navigation";
 
 function SendPageContent() {
-  const { refreshData, walletAddress } = useFinancial();
+  const { refreshData, walletAddress, balance, walletId } = useFinancial();
   const { user } = useAuth();
   const { notify } = useNotify();
   const searchParams = useSearchParams();
@@ -27,10 +26,8 @@ function SendPageContent() {
   const [isValidRecipient, setIsValidRecipient] = useState(false);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Transfer");
-  const [blockchain, setBlockchain] = useState("ARC-TESTNET");
   const [completed, setCompleted] = useState(false);
-  const [chainData, setChainData] = useState<Record<string, { balance: number; walletId: string; walletAddress: string; source?: string }>>({});
-  const [chainBalanceLoading, setChainBalanceLoading] = useState(false);
+  const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -50,7 +47,6 @@ function SendPageContent() {
     const savedAmount = localStorage.getItem("setra_draft_amount");
     const savedCategory = localStorage.getItem("setra_draft_category");
     
-    // Only load saved recipient if no URL param
     if (!searchParams.get('address') && savedRecipient) {
       setRecipient(savedRecipient);
     }
@@ -58,61 +54,13 @@ function SendPageContent() {
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
 
-  // Fetch per-chain wallets and balances once on mount,
-  // then poll every 30s to stay fresh
-  useEffect(() => {
-    const fetchChainBalances = async () => {
-      try {
-        const res = await fetch("/api/wallet/chain-balances");
-        const data = await res.json();
-        if (data.chains) {
-          const map: Record<string, { balance: number; walletId: string; walletAddress: string; source?: string }> = {};
-          for (const c of data.chains) {
-            map[c.blockchain] = {
-              balance: c.usdcBalance,
-              walletId: c.walletId,
-              walletAddress: c.walletAddress,
-              source: c.source,
-            };
-          }
-          setChainData(map);
-        }
-      } catch {
-        // silent
-      } finally {
-        setChainBalanceLoading(false);
-      }
-    };
-
-    setChainBalanceLoading(true);
-    fetchChainBalances();
-    const interval = setInterval(fetchChainBalances, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Refresh chain data manually
-  const refreshChainData = async () => {
-    setChainBalanceLoading(true);
+  const handleRefreshBalance = async () => {
+    setRefreshingBalance(true);
     try {
-      const res = await fetch("/api/wallet/chain-balances");
-      const data = await res.json();
-      if (data.chains) {
-        const map: Record<string, { balance: number; walletId: string; walletAddress: string; source?: string }> = {};
-        for (const c of data.chains) {
-          map[c.blockchain] = {
-            balance: c.usdcBalance,
-            walletId: c.walletId,
-            walletAddress: c.walletAddress,
-            source: c.source,
-          };
-        }
-        setChainData(map);
-      }
-    } catch {
-      // silent
-    } finally {
-      setChainBalanceLoading(false);
-    }
+      const res = await fetch('/api/wallet/chain-balances');
+      await res.json();
+    } catch {}
+    setRefreshingBalance(false);
   };
 
   // Cleanup scanner on unmount
@@ -218,15 +166,13 @@ function SendPageContent() {
       return;
     }
 
-    const chainInfo = chainData[blockchain];
-
-    if (!chainInfo?.walletId) {
-      notify(`No wallet found for ${blockchain.replace(/-/g, " ")}. Please create a wallet first.`);
+    if (!walletId) {
+      notify("No wallet found. Please create a wallet first.");
       return;
     }
 
-    if (numAmount > chainInfo.balance) {
-      notify(`Insufficient balance on ${blockchain.replace(/-/g, " ")} for this transaction`);
+    if (numAmount > (balance ?? 0)) {
+      notify("Insufficient balance for this transaction");
       return;
     }
 
@@ -237,12 +183,11 @@ function SendPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletId: chainInfo.walletId,
+          walletId,
           toAddress: recipient,
           amount: amount,
           userId: user.id,
           category: category,
-          blockchain,
         }),
       });
 
@@ -307,23 +252,6 @@ function SendPageContent() {
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-                  <div className="space-y-2 p-1">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
-                      Blockchain
-                    </Label>
-                    <Select value={blockchain} onValueChange={setBlockchain} disabled={loading}>
-                      <SelectTrigger className="h-12 bg-muted/30 border-none rounded-xl focus-visible:ring-primary/20">
-                        <SelectValue placeholder="Select blockchain" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-slate-800 border border-border shadow-xl rounded-xl">
-                        <SelectItem value="ARC-TESTNET">Arc Testnet</SelectItem>
-                        <SelectItem value="ETH-SEPOLIA">Ethereum Sepolia</SelectItem>
-                        <SelectItem value="BASE-SEPOLIA">Base Sepolia</SelectItem>
-                        <SelectItem value="MATIC-AMOY">Polygon Amoy</SelectItem>
-                        <SelectItem value="ARB-SEPOLIA">Arbitrum Sepolia</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
                   <div className="space-y-2 p-1">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
@@ -400,26 +328,24 @@ function SendPageContent() {
           <Card className="border-none shadow-premium bg-primary text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <CardContent className="p-8 relative z-10">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px]">
-                  Unified Balance
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
+                  Arc Testnet Balance
+                  <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10">USDC</span>
                 </p>
                 <button
-                  onClick={refreshChainData}
-                  disabled={chainBalanceLoading}
+                  onClick={handleRefreshBalance}
+                  disabled={refreshingBalance}
                   className="text-white/60 hover:text-white transition-colors p-1"
-                  title="Refresh balances"
+                  title="Refresh balance"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${chainBalanceLoading ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshingBalance ? "animate-spin" : ""}`} />
                 </button>
               </div>
               <h2 className="text-4xl font-extrabold tracking-tight">
-                ${Object.values(chainData).reduce((sum, c) => sum + c.balance, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${(balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
-              <p className="text-white/40 font-bold uppercase tracking-widest text-[9px] mt-1">
-                Balance on {blockchain.replace(/-/g, " ")}: ${(chainData[blockchain]?.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              <div className="mt-10 flex justify-between items-center text-white/80">
+              <div className="mt-12 flex justify-between items-center text-white/80">
                 <div className="flex gap-2 items-center">
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                     <DollarSign className="h-4 w-4" />

@@ -25,7 +25,6 @@ import {
   ScanLine,
   Download,
   Camera,
-  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useFinancial } from "@/context/FinancialContext";
@@ -64,11 +63,7 @@ export default function Page() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
-  const [chainBalances, setChainBalances] = useState<Array<{ blockchain: string; chainName: string; usdcBalance: number; isTestnet: boolean; walletAddress?: string }>>([]);
-  const [gatewayTotal, setGatewayTotal] = useState<number | null>(null);
-  const [showChainDetails, setShowChainDetails] = useState(true);
   const [txFilter, setTxFilter] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
-  const [copiedChain, setCopiedChain] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const userInitial = profile.firstName?.[0] || user?.email?.[0]?.toUpperCase() || "U";
@@ -85,30 +80,6 @@ export default function Page() {
       refreshBalance();
     }
   }, [walletAddress, isLoaded]);
-
-  // Fetch chain balances
-  useEffect(() => {
-    if (!isLoaded || !walletAddress) return;
-    (async () => {
-      try {
-        const res = await fetch("/api/wallet/chain-balances");
-        const data = await res.json();
-        if (data.chains) setChainBalances(data.chains);
-      } catch {}
-    })();
-  }, [isLoaded, walletAddress]);
-
-  // Fetch Gateway unified balance
-  useEffect(() => {
-    if (!isLoaded || !walletAddress) return;
-    (async () => {
-      try {
-        const res = await fetch("/api/gateway/balance");
-        const data = await res.json();
-        if (data.success) setGatewayTotal(data.total);
-      } catch {}
-    })();
-  }, [isLoaded, walletAddress]);
 
   // Close notifications dropdown on click outside
   useEffect(() => {
@@ -377,71 +348,6 @@ export default function Page() {
           </div>
         )}
       </div>
-
-      {/* Chain Wallets */}
-      {chainBalances.length > 0 && (
-        <div className="w-full max-w-xl mx-auto">
-          <button
-            onClick={() => setShowChainDetails(!showChainDetails)}
-            className="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all border border-border/20"
-          >
-            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <Wallet className="h-3 w-3" />
-              Chain Wallets
-            </span>
-            <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showChainDetails ? 'rotate-180' : ''}`} />
-          </button>
-          {showChainDetails && (
-            <div className="mt-2 rounded-xl bg-muted/20 border border-border/20 divide-y divide-border/20">
-              {chainBalances.map((cb) => (
-                <div key={cb.blockchain} className="px-3 py-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold">{cb.chainName}</span>
-                      {cb.isTestnet && (
-                        <span className="text-[8px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded">T</span>
-                      )}
-                    </div>
-                    <span className="text-xs font-black">
-                      ${cb.usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[9px] font-mono text-muted-foreground truncate max-w-[200px]">
-                      {cb.walletAddress ? `${cb.walletAddress.substring(0, 10)}...${cb.walletAddress.substring(cb.walletAddress.length - 6)}` : "No address"}
-                    </span>
-                    {cb.walletAddress && (
-                      <button
-                        onClick={() => {
-                          if (!cb.walletAddress) return;
-                          navigator.clipboard.writeText(cb.walletAddress);
-                          setCopiedChain(cb.blockchain);
-                          setTimeout(() => setCopiedChain(null), 2000);
-                        }}
-                        className="flex-shrink-0"
-                      >
-                        {copiedChain === cb.blockchain ? (
-                          <CheckIcon className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground transition-colors" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {gatewayTotal !== null && (
-                <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-xs font-bold text-primary">Gateway Unified</span>
-                  <span className="text-xs font-bold text-primary">
-                    ${gatewayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* 3. Side-by-Side Quick Action Buttons */}
       <div className="w-full max-w-xl mx-auto">

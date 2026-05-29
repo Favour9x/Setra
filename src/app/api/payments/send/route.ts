@@ -10,7 +10,7 @@ import { insertLedgerTransaction, insertRecipientReceivedTransaction, creditUser
 
 export async function POST(request: NextRequest) {
   try {
-    const { walletId, toAddress, amount, userId, category, blockchain } = await request.json();
+    const { walletId, toAddress, amount, userId, category } = await request.json();
 
     if (!walletId || !toAddress || !amount || !userId) {
       return NextResponse.json(
@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
       toAddress: resolvedToAddress,
       amount,
       type: "USDC",
-      blockchain,
     });
 
     if (!result.success) {
