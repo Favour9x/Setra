@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { processScheduledWorkflows } from "@/lib/workflows/scheduler";
+import { processDueSubscriptions } from "@/lib/services/subscription";
 
 /**
  * Cron endpoint for processing scheduled workflows
@@ -17,13 +19,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("🕐 Cron job triggered: Processing scheduled workflows");
-    
-    const result = await processScheduledWorkflows();
-    
+    console.log("Cron job triggered: Processing scheduled workflows & subscriptions");
+
+    const workflowResult = await processScheduledWorkflows();
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const subResult = await processDueSubscriptions(supabaseAdmin);
+
     return NextResponse.json({
       success: true,
-      ...result,
+      workflows: workflowResult,
+      subscriptions: subResult,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
