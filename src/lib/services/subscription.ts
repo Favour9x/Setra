@@ -44,7 +44,7 @@ export async function createSubscription(
     if (data.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
     else if (data.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
     else if (data.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
-    else nextBilling.setDate(nextBilling.getDate() + 30);
+    else nextBilling.setMonth(nextBilling.getMonth() + 1);
   }
 
   const { data: inserted, error } = await client
@@ -195,7 +195,7 @@ export async function processDueSubscriptions(
       if (subscription.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
       else if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
       else if (subscription.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
-      else nextBilling.setDate(nextBilling.getDate() + 30);
+      else nextBilling.setMonth(nextBilling.getMonth() + 1);
 
       await client
         .from("subscriptions")
@@ -315,7 +315,7 @@ export async function processRenewal(
         if (subscription.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
         else if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
         else if (subscription.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
-        else nextBilling.setDate(nextBilling.getDate() + 30);
+        else nextBilling.setMonth(nextBilling.getMonth() + 1);
         
         await client
           .from("subscriptions")
@@ -331,7 +331,7 @@ export async function processRenewal(
     if (subscription.frequency === "daily") nextBilling.setDate(nextBilling.getDate() + 1);
     else if (subscription.frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
     else if (subscription.frequency === "yearly") nextBilling.setDate(nextBilling.getDate() + 365);
-    else nextBilling.setDate(nextBilling.getDate() + 30); // monthly (30 days)
+    else nextBilling.setMonth(nextBilling.getMonth() + 1); // monthly (30 days)
 
     // Update next_billing_date in Supabase
     const { error: updateError } = await client

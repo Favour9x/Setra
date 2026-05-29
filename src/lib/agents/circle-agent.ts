@@ -317,7 +317,7 @@ export class SubscriptionBillingAgent {
           if (billingRes.success) {
             successes++;
             const nextBilling = new Date();
-            nextBilling.setDate(nextBilling.getDate() + 30);
+            nextBilling.setMonth(nextBilling.getMonth() + 1);
 
             await supabase
               .from("subscriptions")

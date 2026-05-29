@@ -59,7 +59,7 @@ function nextCycleDisplay(sub: Subscription): string {
   if (sub.frequency === "daily") d.setDate(d.getDate() + 1);
   else if (sub.frequency === "weekly") d.setDate(d.getDate() + 7);
   else if (sub.frequency === "yearly") d.setDate(d.getDate() + 365);
-  else d.setDate(d.getDate() + 30);
+  else d.setMonth(d.getMonth() + 1);
   return formatDateTime(d.toISOString());
 }
 

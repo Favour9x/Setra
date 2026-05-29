@@ -42,7 +42,7 @@ export async function POST(
 
     const nextBilling = new Date();
     if (frequency === "weekly") nextBilling.setDate(nextBilling.getDate() + 7);
-    else nextBilling.setDate(nextBilling.getDate() + 30);
+    else nextBilling.setMonth(nextBilling.getMonth() + 1);
 
     const { data: subscription, error } = await client
       .from("subscriptions")
