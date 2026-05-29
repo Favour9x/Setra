@@ -48,19 +48,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Build the admin Supabase client early (needed for wallet creation profile update + later)
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     // Verify the wallet belongs to the user by checking their wallet set
-    const { listUserWallets } = await import("@/lib/circle/client");
-    const userWallets = await listUserWallets(user.id);
+    const { listUserWallets, createWalletsForUser } = await import("@/lib/circle/client");
+    let userWallets = await listUserWallets(user.id);
+
+    // Auto-create a wallet if none exists for this user
+    if (userWallets.length === 0) {
+      console.log(`No wallets found for user ${user.id}, creating one on Arc Testnet...`);
+      userWallets = await createWalletsForUser(user.id);
+      if (userWallets.length === 0) {
+        return NextResponse.json(
+          { error: "Failed to create wallet. Please try again." },
+          { status: 500 }
+        );
+      }
+      // Persist the new wallet to the user's profile so FinancialContext picks it up next load
+      await adminSupabase
+        .from("profiles")
+        .update({
+          wallet_id: userWallets[0].walletId,
+          wallet_address: userWallets[0].walletAddress,
+        })
+        .eq("id", user.id);
+    }
+
+    // Use the correct walletId — if the submitted one doesn't match the user's actual wallets,
+    // fall back to the first available wallet (handles stale profile wallet_id).
+    let effectiveWalletId = walletId;
     const validWalletIds = new Set(userWallets.map((w: any) => w.walletId));
     if (!validWalletIds.has(walletId)) {
-      return NextResponse.json(
-        { error: "Wallet not found for this user" },
-        { status: 403 }
+      effectiveWalletId = userWallets[0].walletId;
+      console.warn(
+        `Wallet ID ${walletId} submitted but not in user's wallets; using ${effectiveWalletId} instead`
       );
+      // Fix the stale profile wallet_id so the dashboard shows the correct wallet
+      await adminSupabase
+        .from("profiles")
+        .update({ wallet_id: effectiveWalletId })
+        .eq("id", user.id);
     }
 
     const result = await executePayment({
-      fromWalletId: walletId,
+      fromWalletId: effectiveWalletId,
       toAddress: resolvedToAddress,
       amount,
       type: "USDC",
@@ -81,11 +116,6 @@ export async function POST(request: NextRequest) {
       amount,
       recipient: resolvedToAddress
     });
-
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     const recipientUsername = toAddress.startsWith("@") ? toAddress.substring(1) : null;
 
@@ -171,7 +201,7 @@ export async function POST(request: NextRequest) {
     let newCircleBalance = 0;
     try {
       const { getBalance } = await import("@/lib/payments");
-      const balances = await getBalance(walletId);
+      const balances = await getBalance(effectiveWalletId);
       const usdcBal = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
       if (usdcBal) newCircleBalance = parseFloat(usdcBal.amount);
     } catch (balErr) {
