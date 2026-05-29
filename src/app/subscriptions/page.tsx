@@ -51,6 +51,18 @@ function formatDateTime(dateStr: string | null) {
   });
 }
 
+function nextCycleDisplay(sub: Subscription): string {
+  if (!sub.start_date || sub.next_billing_date !== sub.start_date) {
+    return formatDateTime(sub.next_billing_date);
+  }
+  const d = new Date(sub.start_date);
+  if (sub.frequency === "daily") d.setDate(d.getDate() + 1);
+  else if (sub.frequency === "weekly") d.setDate(d.getDate() + 7);
+  else if (sub.frequency === "yearly") d.setDate(d.getDate() + 365);
+  else d.setDate(d.getDate() + 30);
+  return formatDateTime(d.toISOString());
+}
+
 export default function Page() {
   const { notify } = useNotify();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -310,7 +322,7 @@ export default function Page() {
                           </span>
                         )}
                         <span className="text-[10px] text-muted-foreground/50 font-bold">
-                          Next: {formatDateTime(sub.next_billing_date)}
+                          Next: {nextCycleDisplay(sub)}
                         </span>
                       </div>
                     </div>
