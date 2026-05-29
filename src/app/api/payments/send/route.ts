@@ -54,44 +54,76 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Verify the wallet belongs to the user by checking their wallet set
-    const { listUserWallets, createWalletsForUser } = await import("@/lib/circle/client");
-    let userWallets = await listUserWallets(user.id);
+    // Verify the wallet belongs to the user by checking with Circle API directly
+    const { getWalletById, createWalletsForUser, getWalletBalanceForBlockchain } = await import("@/lib/circle/client");
 
-    // Auto-create a wallet if none exists for this user
-    if (userWallets.length === 0) {
-      console.log(`No wallets found for user ${user.id}, creating one on Arc Testnet...`);
-      userWallets = await createWalletsForUser(user.id);
-      if (userWallets.length === 0) {
-        return NextResponse.json(
-          { error: "Failed to create wallet. Please try again." },
-          { status: 500 }
-        );
-      }
-      // Persist the new wallet to the user's profile so FinancialContext picks it up next load
-      await adminSupabase
-        .from("profiles")
-        .update({
-          wallet_id: userWallets[0].walletId,
-          wallet_address: userWallets[0].walletAddress,
-        })
-        .eq("id", user.id);
+    let effectiveWalletId = walletId;
+    let walletExists = false;
+
+    try {
+      const walletResponse = await getWalletById(walletId);
+      walletExists = !!walletResponse.data?.wallet?.id;
+    } catch {
+      walletExists = false;
     }
 
-    // Use the correct walletId — if the submitted one doesn't match the user's actual wallets,
-    // fall back to the first available wallet (handles stale profile wallet_id).
-    let effectiveWalletId = walletId;
-    const validWalletIds = new Set(userWallets.map((w: any) => w.walletId));
-    if (!validWalletIds.has(walletId)) {
-      effectiveWalletId = userWallets[0].walletId;
-      console.warn(
-        `Wallet ID ${walletId} submitted but not in user's wallets; using ${effectiveWalletId} instead`
-      );
-      // Fix the stale profile wallet_id so the dashboard shows the correct wallet
-      await adminSupabase
+    if (!walletExists) {
+      const { data: profile } = await adminSupabase
         .from("profiles")
-        .update({ wallet_id: effectiveWalletId })
-        .eq("id", user.id);
+        .select("wallet_id, wallet_address")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.wallet_id && profile.wallet_id !== walletId) {
+        effectiveWalletId = profile.wallet_id;
+        try {
+          const walletResponse = await getWalletById(effectiveWalletId);
+          walletExists = !!walletResponse.data?.wallet?.id;
+        } catch {
+          walletExists = false;
+        }
+      }
+
+      if (!walletExists) {
+        console.log(`No wallet found for user ${user.id}, creating one on Arc Testnet...`);
+        const newWallets = await createWalletsForUser(user.id);
+        if (newWallets.length === 0) {
+          return NextResponse.json(
+            { error: "Failed to create wallet. Please try again." },
+            { status: 500 }
+          );
+        }
+        effectiveWalletId = newWallets[0].walletId;
+
+        await adminSupabase
+          .from("profiles")
+          .update({
+            wallet_id: effectiveWalletId,
+            wallet_address: newWallets[0].walletAddress,
+          })
+          .eq("id", user.id);
+      } else if (effectiveWalletId !== walletId) {
+        await adminSupabase
+          .from("profiles")
+          .update({ wallet_id: effectiveWalletId })
+          .eq("id", user.id);
+      }
+    }
+
+    // Validate on-chain balance before sending (avoids "insufficient balance" from Circle)
+    const realBalances = await getWalletBalanceForBlockchain(effectiveWalletId);
+    const usdcBalance = realBalances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
+    const realBalanceAmount = usdcBalance ? parseFloat(usdcBalance.amount) : 0;
+    const sendAmount = parseFloat(amount);
+
+    if (sendAmount > realBalanceAmount) {
+      return NextResponse.json(
+        {
+          error: `Insufficient balance. You have $${realBalanceAmount.toFixed(2)} USDC but attempted to send $${sendAmount.toFixed(2)}.`,
+          availableBalance: realBalanceAmount,
+        },
+        { status: 400 }
+      );
     }
 
     const result = await executePayment({

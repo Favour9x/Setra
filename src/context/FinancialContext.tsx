@@ -228,22 +228,9 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           setWalletAddress(currentWalletAddress);
         }
         
-        // Use displayBalance if available (heuristic: Circle vs local), otherwise Circle balance
-        if (balanceData && balanceData.success) {
-          console.log('📊 FinancialContext: Balance response:', balanceData);
-          if (typeof balanceData.displayBalance === 'number') {
-            finalBalance = balanceData.displayBalance;
-            console.log(`💵 FinancialContext: Balance from ${balanceData.source || 'unknown'} source:`, finalBalance);
-          } else {
-            const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
-            if (usdcBalance) {
-              finalBalance = parseFloat(usdcBalance.amount);
-              console.log('💵 FinancialContext: USDC Balance from Circle:', finalBalance);
-            } else {
-              console.log('⚠️ FinancialContext: No USDC balance found in Circle response');
-              finalBalance = 0;
-            }
-          }
+        if (balanceData && balanceData.success && typeof balanceData.balance === 'number') {
+          finalBalance = balanceData.balance;
+          console.log('💵 FinancialContext: Balance from Circle API:', finalBalance);
         } else {
           console.warn('❌ FinancialContext: Circle balance fetch failed or was skipped');
         }
@@ -437,8 +424,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     
     if (initialFetchDone.current !== user.id) {
       console.log("🚀 FinancialContext - Triggering initial data fetch for user:", user.id);
-      initialFetchDone.current = user.id;
-      fetchData();
+      fetchData().then(() => {
+        initialFetchDone.current = user.id;
+      }).catch(() => {
+        // Allow retry on next render if fetch fails
+        console.warn("⚠️ Initial fetch failed, will retry on re-render");
+      });
     }
   }, [user, fetchData]);
 
@@ -464,26 +455,9 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
-          console.log('📊 Balance response:', balanceData);
-          
-          // Use displayBalance (heuristic: highest of Circle vs local) if available
-          if (typeof balanceData.displayBalance === 'number') {
-            console.log(`✅ Balance from ${balanceData.source || 'unknown'} source: $${balanceData.displayBalance}`);
-            return balanceData.displayBalance;
-          }
-          
-          // Fallback to parsing Circle balances
-          const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
-          if (usdcBalance) {
-            const newBalance = parseFloat(usdcBalance.amount);
-            console.log(`✅ Balance fetched from Circle API: $${newBalance}`);
-            return newBalance;
-          }
-          
-          // Use local balance if Circle returned nothing
-          if (typeof balanceData.localBalance === 'number') {
-            console.log(`✅ Balance from local transactions: $${balanceData.localBalance}`);
-            return balanceData.localBalance;
+          if (typeof balanceData.balance === 'number') {
+            console.log(`✅ Balance from Circle API: $${balanceData.balance}`);
+            return balanceData.balance;
           }
         }
         
@@ -562,22 +536,9 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
             
             if (balanceResponse.ok) {
               const balanceData = await balanceResponse.json();
-              let freshBalance = 0;
-              if (typeof balanceData.displayBalance === 'number') {
-                freshBalance = balanceData.displayBalance;
-                console.log(`💰 Realtime: Balance from ${balanceData.source || 'unknown'} source: $${freshBalance}`);
-              } else {
-                const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
-                if (usdcBalance) {
-                  freshBalance = parseFloat(usdcBalance.amount);
-                  console.log(`💰 Realtime: Setting balance to Circle API value: $${freshBalance}`);
-                } else if (typeof balanceData.localBalance === 'number') {
-                  freshBalance = balanceData.localBalance;
-                  console.log(`💰 Realtime: Setting balance to local value: $${freshBalance}`);
-                }
-              }
-              if (freshBalance >= 0) {
-                setState(prev => ({ ...prev, balance: freshBalance }));
+              if (typeof balanceData.balance === 'number' && balanceData.balance >= 0) {
+                console.log(`💰 Realtime: Balance from Circle API: $${balanceData.balance}`);
+                setState(prev => ({ ...prev, balance: balanceData.balance }));
               }
             }
           } catch (error) {
@@ -674,20 +635,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         });
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
-          let freshBalance = 0;
-          if (typeof balanceData.displayBalance === 'number') {
-            freshBalance = balanceData.displayBalance;
-          } else {
-            const usdcBalance = balanceData.balances?.find((b: any) => b.symbol?.toUpperCase() === 'USDC');
-            if (usdcBalance) freshBalance = parseFloat(usdcBalance.amount);
-            else if (typeof balanceData.localBalance === 'number') freshBalance = balanceData.localBalance;
-          }
-          if (freshBalance >= 0) {
+          if (typeof balanceData.balance === 'number' && balanceData.balance >= 0) {
             setState(prev => {
-              if (prev.balance !== freshBalance) {
-                console.log(`⏰ Periodic poll: balance updated from $${prev.balance} to $${freshBalance}`);
+              if (prev.balance !== balanceData.balance) {
+                console.log(`⏰ Periodic poll: balance updated from $${prev.balance} to $${balanceData.balance}`);
               }
-              return { ...prev, balance: freshBalance };
+              return { ...prev, balance: balanceData.balance };
             });
           }
         }

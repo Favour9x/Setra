@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBalance } from "@/lib/payments";
 import { createClient as createServerSupabase } from "@/lib/supabase-server";
-import { createClient } from "@supabase/supabase-js";
-import { calculateLocalBalance } from "@/lib/services/ledger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +13,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Authenticate the user using cookies
     const supabase = await createServerSupabase();
 
     const {
@@ -28,7 +25,6 @@ export async function POST(request: NextRequest) {
 
     const user = session.user;
 
-    // Fetch the user's profile and check wallet ownership
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("wallet_id")
@@ -49,28 +45,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch fresh balance from Circle API
+    // Fetch fresh balance from Circle API only (no local ledger mixing)
     const balances = await getBalance(walletId);
     const circleUsdc = balances.find((b: any) => b.symbol?.toUpperCase() === "USDC");
-    const circleAmount = circleUsdc ? parseFloat(circleUsdc.amount) : 0;
-
-    // Calculate local balance as fallback
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    const localBalance = await calculateLocalBalance(adminSupabase, user.id);
-
-    // Use Circle balance if it's higher (includes external transfers not tracked locally),
-    // otherwise use local balance (faster to update after Setra-to-Setra transfers)
-    const displayBalance = circleAmount > localBalance ? circleAmount : localBalance;
+    const balance = circleUsdc ? parseFloat(circleUsdc.amount) : 0;
 
     return NextResponse.json({
       success: true,
-      balances,
-      localBalance,
-      displayBalance,
-      source: circleAmount > localBalance ? "circle" : "local",
+      balance,
+      source: "circle",
     });
   } catch (error: any) {
     console.error("Balance fetch error:", error);

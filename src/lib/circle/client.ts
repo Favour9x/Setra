@@ -65,6 +65,11 @@ export async function createWalletsForUser(userId: string): Promise<WalletInfo[]
   return wallets;
 }
 
+export async function getWalletById(walletId: string) {
+  const client = getCircleClient();
+  return client.getWallet({ id: walletId });
+}
+
 export async function getWalletBalanceForBlockchain(
   walletId: string,
   blockchain?: string
@@ -207,7 +212,7 @@ export async function listUserWallets(userId: string): Promise<WalletInfo[]> {
 
   if (results.length === 0) {
     try {
-      const allResponse = await client.listWallets({ walletSetId });
+      const allResponse = await client.listWallets({ walletSetId, pageSize: 50 });
       const allWallets = allResponse.data?.wallets || [];
       for (const chain of BLOCKCHAINS) {
         const match = allWallets.find((w: any) => w.blockchain === chain.id);
