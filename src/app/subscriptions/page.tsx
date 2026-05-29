@@ -40,8 +40,11 @@ interface Subscription {
   created_at: string;
 }
 
-function formatDateTime(dateStr: string) {
-  const d = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+function formatDateTime(dateStr: string | null) {
+  if (!dateStr) return "—";
+  const hasTz = /[Z+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith("Z");
+  const d = new Date(hasTz ? dateStr : dateStr + "Z");
+  if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
     hour: "2-digit", minute: "2-digit"
