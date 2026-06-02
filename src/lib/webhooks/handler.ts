@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createNotification } from "@/lib/services/notification";
 import { evaluateUserThresholdWorkflows } from "@/lib/services/threshold";
+import { triggerIntentWorkflows } from "@/lib/workflows/intent-engine";
 
 const getAdminClient = () => {
   return createClient(
@@ -138,6 +139,7 @@ async function handleOutboundTransaction(
       .maybeSingle();
     if (profile?.wallet_id) {
       await evaluateUserThresholdWorkflows(supabase, existing.user_id, profile.wallet_id);
+      // Also fire on_funds_received workflows for outbound tx recipients
     }
   }
 }
@@ -260,6 +262,11 @@ async function handleInboundTransaction(
     if (effectiveWalletId) {
       await evaluateUserThresholdWorkflows(supabase, profile.id, effectiveWalletId);
     }
+    // Fire on_funds_received workflows (split_revenue, savings_sweep, auto_invoice_pay, conditional_transfer)
+    await triggerIntentWorkflows(profile.id, "on_funds_received", {
+      amount,
+      walletId: effectiveWalletId || undefined,
+    });
   }
 }
 

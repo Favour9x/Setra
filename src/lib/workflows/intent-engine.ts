@@ -135,6 +135,10 @@ export async function executeIntentWorkflow(
         txHash = await executeConditionalTransfer(workflow, sourceWalletId, userId, payload, adminClient);
         break;
 
+      case "custom_intent":
+        txHash = await executeScheduledPayment(workflow, sourceWalletId, userId, adminClient);
+        break;
+
       default:
         throw new Error(`Unsupported workflow type: ${workflow.workflow_type}`);
     }
@@ -355,7 +359,7 @@ async function executeThresholdTransfer(
   let shouldTransfer = false;
   if (comparison === "greater_than" && balance >= thresholdLimit) {
     shouldTransfer = true;
-  } else if (comparison === "less_than" && balance <= thresholdLimit) {
+  } else if (comparison === "less_than" && balance < thresholdLimit) {
     shouldTransfer = true;
   } else if (comparison === "equals" && balance === thresholdLimit) {
     shouldTransfer = true;
