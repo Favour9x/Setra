@@ -73,7 +73,7 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  const { setSettingsOpen, profile, refreshBalance } = useFinancial();
+  const { setSettingsOpen, profile, refreshBalance, walletId } = useFinancial();
   const { notify } = useNotify();
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -90,7 +90,7 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
     }
   }, [user?.id]);
 
-  const isProUser = (profile as any)?.is_pro || localIsPro;
+  const isProUser = localIsPro;
 
   const handleNavigation = (e: React.MouseEvent, href: string) => {
     // Intercept navigation to Automation (workflows or automation routes) if not Pro
@@ -102,8 +102,8 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
   };
 
   const executeUpgrade = async () => {
-    if (!(profile as any)?.wallet_id || !user?.id) {
-      notify("Authentication error. Please log in again.");
+    if (!walletId || !user?.id) {
+      notify("Please set up your wallet first. Go to Settings to create one.");
       return;
     }
 
@@ -120,13 +120,14 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
       setUpgradeStep("payment");
 
       // 1. Trigger the USDC transfer to the Circle Agent Wallet
+      const setraWallet = process.env.NEXT_PUBLIC_SETRA_PAYMENT_WALLET || "0xd0629fda6f615fc83711d58ac165cfa98c783141";
       const paymentRes = await fetch("/api/payments/send", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletId: (profile as any).wallet_id,
-          toAddress: "0xd0629fda6f615fc83711d58ac165cfa98c783141", // CIRCLE_AGENT_WALLET_ADDRESS
+          walletId,
+          toAddress: setraWallet,
           amount: planAmount,
           userId: user.id,
           category: "Subscription"

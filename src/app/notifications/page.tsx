@@ -15,6 +15,9 @@ const FILTER_OPTIONS: { label: string; value: NotificationType | "ALL" }[] = [
   { label: "Invoices", value: "invoice_created" },
   { label: "Paid", value: "invoice_paid" },
   { label: "Subscriptions", value: "subscription_renewed" },
+  { label: "Auto-Paused", value: "subscription_paused" },
+  { label: "Payment Failed", value: "subscription_renewal_failed" },
+  { label: "Threshold Alert", value: "threshold_alert" },
   { label: "Workflows", value: "workflow_executed" },
   { label: "Requests", value: "payment_request" },
 ];

@@ -15,7 +15,10 @@ import {
   Zap, 
   HandCoins, 
   X,
-  Sparkles
+  Sparkles,
+  PauseCircle,
+  AlertTriangle,
+  AlertOctagon
 } from "lucide-react";
 
 export type NotificationType = 
@@ -24,6 +27,9 @@ export type NotificationType =
   | 'invoice_created' 
   | 'invoice_paid' 
   | 'subscription_renewed' 
+  | 'subscription_paused'
+  | 'subscription_renewal_failed'
+  | 'threshold_alert'
   | 'workflow_executed' 
   | 'payment_request';
 
@@ -70,6 +76,12 @@ export function getNotificationIcon(type: NotificationType, className = "h-5 w-5
       return <Zap className={`${className} text-purple-500`} />;
     case 'payment_request':
       return <HandCoins className={`${className} text-rose-500`} />;
+    case 'subscription_paused':
+      return <PauseCircle className={`${className} text-amber-500`} />;
+    case 'subscription_renewal_failed':
+      return <AlertTriangle className={`${className} text-red-500`} />;
+    case 'threshold_alert':
+      return <AlertOctagon className={`${className} text-orange-500`} />;
     default:
       return <Bell className={`${className} text-muted-foreground`} />;
   }
@@ -258,7 +270,7 @@ export function NotificationCenterProvider({ children }: { children: ReactNode }
                     router.push(`/invoices/${md.invoice_id}`);
                   } else if (toast.notification.type === "payment_received" || toast.notification.type === "payment_sent") {
                     router.push("/transactions");
-                  } else if (toast.notification.type === "subscription_renewed") {
+                  } else if (toast.notification.type === "subscription_renewed" || toast.notification.type === "subscription_paused" || toast.notification.type === "subscription_renewal_failed") {
                     router.push("/subscriptions");
                   } else if (toast.notification.type === "workflow_executed") {
                     router.push("/workflows");

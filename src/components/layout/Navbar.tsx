@@ -248,7 +248,7 @@ export function Navbar() {
                               router.push(`/invoices/${n.metadata.invoice_id}`);
                             } else if (n.type === "payment_received" || n.type === "payment_sent") {
                               router.push("/transactions");
-                            } else if (n.type === "subscription_renewed") {
+                            } else if (n.type === "subscription_renewed" || n.type === "subscription_paused" || n.type === "subscription_renewal_failed") {
                               router.push("/subscriptions");
                             } else if (n.type === "workflow_executed") {
                               router.push("/workflows");
