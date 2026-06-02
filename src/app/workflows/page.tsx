@@ -106,8 +106,9 @@ export default function Page() {
       const res = await fetch("/api/user/profile", { credentials: "include" });
       const data = await res.json();
       if (data.success && data.profile) {
-        setSubscriptionTier(data.profile.subscription_tier || "free");
-        if (data.profile.subscription_tier !== "pro_business") {
+        const isPro = data.profile.is_pro === true;
+        setSubscriptionTier(isPro ? "pro" : "free");
+        if (!isPro) {
           setShowUpgradePrompt(true);
         }
       }

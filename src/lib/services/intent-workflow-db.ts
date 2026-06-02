@@ -334,6 +334,60 @@ export async function deleteIntentWorkflow(
   }
 }
 
+export const FREE_TIER_MAX_WORKFLOWS = 2;
+
+export async function countActiveWorkflows(
+  userId: string,
+  supabase?: any
+): Promise<number> {
+  const client = supabase || getAdminClient();
+  const fallback = await shouldRunFallback(client);
+
+  if (fallback) {
+    const { data, error } = await client
+      .from("workflows")
+      .select("id", { count: "exact" })
+      .eq("user_id", userId)
+      .eq("active", true);
+
+    if (error) throw error;
+    return data?.length || 0;
+  } else {
+    const { count, error } = await client
+      .from("automation_workflows")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("active", true);
+
+    if (error) throw error;
+    return count || 0;
+  }
+}
+
+export async function checkWorkflowLimit(
+  userId: string,
+  supabase: any
+): Promise<{ allowed: boolean; reason?: string }> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_pro")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const isPro = profile?.is_pro === true;
+  if (isPro) return { allowed: true };
+
+  const activeCount = await countActiveWorkflows(userId, supabase);
+  if (activeCount >= FREE_TIER_MAX_WORKFLOWS) {
+    return {
+      allowed: false,
+      reason: `Free plan limited to ${FREE_TIER_MAX_WORKFLOWS} active workflows. Upgrade to Pro for unlimited workflows.`
+    };
+  }
+
+  return { allowed: true };
+}
+
 export async function logExecutionAttempt(
   workflowId: string,
   status: "pending" | "running" | "success" | "failed",

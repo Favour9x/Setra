@@ -49,18 +49,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if user has Pro Business subscription
+    // Check if user has Pro subscription
     const { data: profile } = await adminClient
       .from("profiles")
-      .select("subscription_tier")
+      .select("is_pro")
       .eq("id", user.id)
       .single();
 
-    if (!profile || profile.subscription_tier !== "pro_business") {
+    if (!profile || !profile.is_pro) {
       return NextResponse.json(
         { 
           success: false, 
-          error: "Pro Business subscription required",
+          error: "Pro subscription required",
           requiresUpgrade: true 
         },
         { status: 403 }

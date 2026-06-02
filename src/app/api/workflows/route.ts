@@ -4,7 +4,8 @@ import {
   fetchIntentWorkflows, 
   saveIntentWorkflow, 
   updateIntentWorkflowStatus, 
-  deleteIntentWorkflow 
+  deleteIntentWorkflow,
+  checkWorkflowLimit
 } from "@/lib/services/intent-workflow-db";
 import { resolveRecipientAddress } from "@/lib/resolve-username";
 import { parseIntent, validateIntentConfig } from "@/lib/workflows/intent-parser";
@@ -54,6 +55,12 @@ export async function POST(request: NextRequest) {
     if (id !== undefined && active !== undefined) {
       const success = await updateIntentWorkflowStatus(user.id, id, active, supabase);
       return NextResponse.json({ success });
+    }
+
+    // Enforce free tier workflow limit
+    const limitCheck = await checkWorkflowLimit(user.id, supabase);
+    if (!limitCheck.allowed) {
+      return NextResponse.json({ error: limitCheck.reason, requiresUpgrade: true }, { status: 403 });
     }
 
     // Parse intent if requested

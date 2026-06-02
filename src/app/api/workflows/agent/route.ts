@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase-server";
 import { parseAgentPrompt } from "@/lib/agents";
+import { checkWorkflowLimit } from "@/lib/services/intent-workflow-db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +19,11 @@ export async function POST(request: NextRequest) {
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+    }
+
+    const limitCheck = await checkWorkflowLimit(user.id, supabase);
+    if (!limitCheck.allowed) {
+      return NextResponse.json({ error: limitCheck.reason, requiresUpgrade: true }, { status: 403 });
     }
 
     const agentResult = await parseAgentPrompt(user.id, prompt);
