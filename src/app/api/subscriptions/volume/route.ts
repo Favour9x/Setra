@@ -11,31 +11,23 @@ export async function GET() {
 
     const now = new Date();
 
-    // Start of today (UTC midnight)
-    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const todayStartStr = todayStart.toISOString();
+    // Local time boundaries (user's timezone)
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Start of current week (Monday UTC midnight)
-    const dow = now.getUTCDay();
+    // Week start (Monday of current week)
+    const dow = now.getDay();
     const daysFromMonday = dow === 0 ? 6 : dow - 1;
-    const weekStart = new Date(todayStart);
-    weekStart.setUTCDate(weekStart.getUTCDate() - daysFromMonday);
-    const weekStartStr = weekStart.toISOString();
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday);
 
-    // Start of current month (UTC midnight 1st)
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const monthStartStr = monthStart.toISOString();
+    // Today start
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Start of current year (UTC midnight Jan 1)
-    const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-    const yearStartStr = yearStart.toISOString();
-
-    // Fetch ALL subscription transactions for this user (no date filter — filter in code)
+    // Fetch ALL expense transactions for this user
     const { data: txns, error } = await supabase
       .from("transactions")
-      .select("amount, created_at")
+      .select("amount, created_at, metadata")
       .eq("user_id", user.id)
-      .eq("category", "Subscription")
       .eq("type", "expense")
       .order("created_at", { ascending: false });
 
@@ -49,17 +41,22 @@ export async function GET() {
     let yearlyVolume = 0;
 
     for (const tx of txns || []) {
-      const created = String(tx.created_at);
-      const amount = parseFloat(String(tx.amount || "0"));
+      // Only count transactions that have subscriptionId in metadata
+      const meta = tx.metadata;
+      if (!meta || typeof meta !== "object" || !("subscriptionId" in meta)) continue;
 
-      // Compare using ISO strings directly (reliable string comparison for UTC ISO dates)
-      if (created >= yearStartStr) {
+      const created = new Date(tx.created_at);
+      if (isNaN(created.getTime())) continue;
+
+      const amount = parseFloat(String(tx.amount ?? "0"));
+
+      if (created >= yearStart) {
         yearlyVolume += amount;
-        if (created >= monthStartStr) {
+        if (created >= monthStart) {
           monthlyVolume += amount;
-          if (created >= weekStartStr) {
+          if (created >= weekStart) {
             weeklyVolume += amount;
-            if (created >= todayStartStr) {
+            if (created >= todayStart) {
               dailyVolume += amount;
             }
           }
