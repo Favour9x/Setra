@@ -23,12 +23,15 @@ export async function GET() {
     // Start of current month (UTC)
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
+    // Start of current year (UTC)
+    const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+
     const { data: transactions, error } = await supabase
       .from("transactions")
       .select("amount, created_at")
       .eq("user_id", user.id)
       .eq("category", "Subscription")
-      .gte("created_at", monthStart.toISOString())
+      .gte("created_at", yearStart.toISOString())
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -38,19 +41,23 @@ export async function GET() {
     let dailyVolume = 0;
     let weeklyVolume = 0;
     let monthlyVolume = 0;
+    let yearlyVolume = 0;
 
     for (const tx of transactions || []) {
       const txDate = new Date(tx.created_at);
       const amount = Number(tx.amount || 0);
 
-      if (txDate >= todayStart) {
-        dailyVolume += amount;
+      if (txDate >= yearStart) {
+        yearlyVolume += amount;
+      }
+      if (txDate >= monthStart) {
+        monthlyVolume += amount;
       }
       if (txDate >= weekStart) {
         weeklyVolume += amount;
       }
-      if (txDate >= monthStart) {
-        monthlyVolume += amount;
+      if (txDate >= todayStart) {
+        dailyVolume += amount;
       }
     }
 
@@ -60,6 +67,7 @@ export async function GET() {
         daily: dailyVolume,
         weekly: weeklyVolume,
         monthly: monthlyVolume,
+        yearly: yearlyVolume,
       },
     });
   } catch (error: any) {

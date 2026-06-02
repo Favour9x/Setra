@@ -208,7 +208,7 @@ export default function Page() {
 
   const activeSubscriptions = subscriptions.filter(s => s.status === "active");
 
-  const [volumes, setVolumes] = useState({ daily: 0, weekly: 0, monthly: 0 });
+  const [volumes, setVolumes] = useState({ daily: 0, weekly: 0, monthly: 0, yearly: 0 });
 
   useEffect(() => {
     fetch("/api/subscriptions/volume", { credentials: "include" })
@@ -246,7 +246,7 @@ export default function Page() {
       </div>
 
       {/* Analytics widgets */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="border-none shadow-premium bg-card overflow-hidden">
           <CardContent className="p-5">
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Active Plans</p>
@@ -273,6 +273,13 @@ export default function Page() {
             <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Monthly Volume</p>
             <h3 className="text-2xl font-black mt-2 text-emerald-900 tracking-tight">${volumes.monthly.toLocaleString()} USDC</h3>
             <p className="text-[10px] text-emerald-600/70 mt-1 font-bold">Subscription payments this month</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-premium bg-violet-500/10 border-l-4 border-violet-500 overflow-hidden">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest">Yearly Volume</p>
+            <h3 className="text-2xl font-black mt-2 text-violet-900 tracking-tight">${volumes.yearly.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-violet-600/70 mt-1 font-bold">Subscription payments this year</p>
           </CardContent>
         </Card>
       </div>
