@@ -113,7 +113,11 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
               <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none font-semibold">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                position="popper"
+                sideOffset={4}
+                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl"
+              >
                 <SelectItem value="scheduled_payment">Scheduled Payment</SelectItem>
                 <SelectItem value="recurring_payment">Recurring Payment</SelectItem>
                 <SelectItem value="split_revenue">Split Revenue</SelectItem>
