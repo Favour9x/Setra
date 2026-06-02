@@ -147,6 +147,7 @@ export default function Page() {
         setStartDate("");
         // Re-hydrate
         await fetchUserSubscriptions();
+        await refreshVolumes();
       } else {
         notify(data.error || "Failed to register subscription");
       }
@@ -169,6 +170,7 @@ export default function Page() {
       if (data.success) {
         notify("Subscription renewed and settled successfully on Arc!");
         await fetchUserSubscriptions();
+        await refreshVolumes();
       } else {
         notify(data.error || "Renewal settlement failed");
       }
@@ -193,6 +195,7 @@ export default function Page() {
       if (data.success) {
         notify(`Subscription ${newStatus === "active" ? "resumed" : newStatus}`);
         await fetchUserSubscriptions();
+        await refreshVolumes();
       } else {
         notify(data.error || "Status update failed");
       }
@@ -205,29 +208,22 @@ export default function Page() {
 
   const activeSubscriptions = subscriptions.filter(s => s.status === "active");
 
-  const toMonthly = (sub: Subscription) => {
-    if (sub.frequency === "daily") return sub.amount * 30;
-    if (sub.frequency === "weekly") return sub.amount * 4.33;
-    if (sub.frequency === "yearly") return sub.amount / 12;
-    return sub.amount;
-  };
-  const activeMRR = activeSubscriptions.reduce((acc, sub) => acc + toMonthly(sub), 0);
+  const [volumes, setVolumes] = useState({ daily: 0, weekly: 0, monthly: 0 });
 
-  const toDaily = (sub: Subscription) => {
-    if (sub.frequency === "weekly") return sub.amount / 7;
-    if (sub.frequency === "monthly") return sub.amount / 30;
-    if (sub.frequency === "yearly") return sub.amount / 365;
-    return sub.amount;
-  };
-  const dailyVolume = activeSubscriptions.reduce((acc, sub) => acc + toDaily(sub), 0);
+  useEffect(() => {
+    fetch("/api/subscriptions/volume", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.success) setVolumes(d.volumes); })
+      .catch(() => {});
+  }, []);
 
-  const toYearly = (sub: Subscription) => {
-    if (sub.frequency === "daily") return sub.amount * 365;
-    if (sub.frequency === "weekly") return sub.amount * 52;
-    if (sub.frequency === "monthly") return sub.amount * 12;
-    return sub.amount;
+  const refreshVolumes = async () => {
+    try {
+      const r = await fetch("/api/subscriptions/volume", { credentials: "include" });
+      const d = await r.json();
+      if (d.success) setVolumes(d.volumes);
+    } catch {}
   };
-  const yearlyVolume = activeSubscriptions.reduce((acc, sub) => acc + toYearly(sub), 0);
 
   return (
     <div className="space-y-10 pb-12 px-4 md:px-6 relative">
@@ -237,7 +233,7 @@ export default function Page() {
           <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase leading-none">
             Subscriptions & <span className="text-primary italic">Recurrings</span>
           </h1>
-          <p className="text-muted-foreground mt-3 text-lg font-medium opacity-80 max-w-xl">Manage and track all your recurring payments in one place.</p>
+          <p className="text-muted-foreground mt-3 text-lg font-medium opacity-80 max-w-xl">Manage and track all your subscriptions and recurring payments in one place.</p>
         </div>
         <div>
           <Button 
@@ -261,22 +257,22 @@ export default function Page() {
         <Card className="border-none shadow-premium bg-sky-500/10 border-l-4 border-sky-500 overflow-hidden">
           <CardContent className="p-5">
             <p className="text-[10px] font-black text-sky-700 uppercase tracking-widest">Daily Volume</p>
-            <h3 className="text-2xl font-black mt-2 text-sky-900 tracking-tight">${dailyVolume.toLocaleString()} USDC</h3>
-            <p className="text-[10px] text-sky-600/70 mt-1 font-bold">Projected daily revenue</p>
+            <h3 className="text-2xl font-black mt-2 text-sky-900 tracking-tight">${volumes.daily.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-sky-600/70 mt-1 font-bold">Subscription payments today</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-premium bg-amber-500/10 border-l-4 border-amber-500 overflow-hidden">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Weekly Volume</p>
+            <h3 className="text-2xl font-black mt-2 text-amber-900 tracking-tight">${volumes.weekly.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-amber-600/70 mt-1 font-bold">Subscription payments this week</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-premium bg-emerald-500/10 border-l-4 border-emerald-500 overflow-hidden">
           <CardContent className="p-5">
             <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Monthly Volume</p>
-            <h3 className="text-2xl font-black mt-2 text-emerald-900 tracking-tight">${activeMRR.toLocaleString()} USDC</h3>
-            <p className="text-[10px] text-emerald-600/70 mt-1 font-bold">Sum of monthly subscriptions</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-premium bg-violet-500/10 border-l-4 border-violet-500 overflow-hidden">
-          <CardContent className="p-5">
-            <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest">Yearly Volume</p>
-            <h3 className="text-2xl font-black mt-2 text-violet-900 tracking-tight">${yearlyVolume.toLocaleString()} USDC</h3>
-            <p className="text-[10px] text-violet-600/70 mt-1 font-bold">Projected annual revenue</p>
+            <h3 className="text-2xl font-black mt-2 text-emerald-900 tracking-tight">${volumes.monthly.toLocaleString()} USDC</h3>
+            <p className="text-[10px] text-emerald-600/70 mt-1 font-bold">Subscription payments this month</p>
           </CardContent>
         </Card>
       </div>
