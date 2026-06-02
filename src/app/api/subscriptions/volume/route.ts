@@ -47,14 +47,14 @@ export async function GET() {
         case "weekly":
           dailyVolume += amount / 7;
           weeklyVolume += amount;
-          monthlyVolume += (amount * WEEKS_IN_YEAR) / MONTHS_IN_YEAR;
-          yearlyVolume += amount * WEEKS_IN_YEAR;
+          monthlyVolume += amount * 4;
+          yearlyVolume += amount * 52;
           break;
         case "monthly":
-          dailyVolume += amount / DAYS_IN_MONTH;
-          weeklyVolume += (amount * MONTHS_IN_YEAR) / WEEKS_IN_YEAR;
+          dailyVolume += amount / 30;
+          weeklyVolume += amount / 4;
           monthlyVolume += amount;
-          yearlyVolume += amount * MONTHS_IN_YEAR;
+          yearlyVolume += amount * 12;
           break;
         case "yearly":
           dailyVolume += amount / DAYS_IN_YEAR;
