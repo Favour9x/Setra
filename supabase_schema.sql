@@ -307,6 +307,24 @@ CREATE POLICY "Users can view their own workflow executions" ON public.workflow_
 CREATE POLICY "Users can view their own workflow logs" ON public.workflow_logs
   FOR SELECT USING (EXISTS (SELECT 1 FROM public.automation_workflows aw WHERE aw.id = workflow_id AND aw.user_id = auth.uid()));
 
+-- 5. Beneficiaries Table (for saved recipients)
+CREATE TABLE IF NOT EXISTS public.beneficiaries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  recipient_tag TEXT,
+  recipient_address TEXT NOT NULL,
+  recipient_avatar TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.beneficiaries ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.beneficiaries TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.beneficiaries TO service_role;
+
+CREATE POLICY "Users can view their own beneficiaries" ON public.beneficiaries FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own beneficiaries" ON public.beneficiaries FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own beneficiaries" ON public.beneficiaries FOR DELETE USING (auth.uid() = user_id);
+
 -- Enforce that wallet_id is immutable once written (can only be written once per user)
 CREATE OR REPLACE FUNCTION public.check_wallet_id_immutability()
 RETURNS trigger AS $$

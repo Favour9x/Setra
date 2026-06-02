@@ -29,6 +29,7 @@ import {
   Repeat,
   PieChart,
   Bell,
+  Users,
 } from "lucide-react";
 
 const BOTTOM_TAB_ITEMS = [
@@ -204,6 +205,7 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
                 label: "Payments",
                 items: [
                   { title: "Send Payment", href: "/send", icon: Send },
+                  { title: "Beneficiaries", href: "/beneficiaries", icon: Users },
                   { title: "Invoices", href: "/invoices", icon: Receipt },
                   { title: "Transactions", href: "/transactions", icon: History },
                 ],

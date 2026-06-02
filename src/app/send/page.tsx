@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useFinancial } from "@/context/FinancialContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotify } from "@/components/ui/notification";
-import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, RefreshCw } from "lucide-react";
+import { Send, DollarSign, Loader2, ArrowLeft, CheckCircle2, QrCode, Camera, Download, X, RefreshCw, UserPlus, Users, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { RecipientInput } from "@/components/ui/RecipientInput";
@@ -30,8 +30,15 @@ function SendPageContent() {
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [lastSentTag, setLastSentTag] = useState<string | null>(null);
+  const [lastSentAddress, setLastSentAddress] = useState<string | null>(null);
+  const [beneficiaries, setBeneficiaries] = useState<{ id: string; recipient_tag: string | null; recipient_address: string }[]>([]);
+  const [showBeneficiaryDropdown, setShowBeneficiaryDropdown] = useState(false);
+  const [savingBeneficiary, setSavingBeneficiary] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivRef = useRef<HTMLDivElement>(null);
+  const recipientRef = useRef<HTMLDivElement>(null);
 
   // Load address from URL params
   useEffect(() => {
@@ -53,6 +60,27 @@ function SendPageContent() {
     if (savedAmount) setAmount(savedAmount);
     if (savedCategory) setCategory(savedCategory);
   }, [searchParams]);
+
+  // Fetch beneficiaries for autocomplete
+  useEffect(() => {
+    fetch("/api/beneficiaries", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.success) setBeneficiaries(d.beneficiaries); })
+      .catch(() => {});
+  }, []);
+
+  // Close beneficiary dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (recipientRef.current && !recipientRef.current.contains(e.target as Node)) {
+        setShowBeneficiaryDropdown(false);
+      }
+    }
+    if (showBeneficiaryDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showBeneficiaryDropdown]);
 
   const handleRefreshBalance = async () => {
     setRefreshingBalance(true);
@@ -193,6 +221,9 @@ function SendPageContent() {
       if (result.success) {
         notify(`Payment of $${numAmount.toLocaleString()} sent successfully`);
         setCompleted(true);
+        const tag = recipient.startsWith("@") ? recipient.slice(1) : null;
+        setLastSentTag(tag);
+        setLastSentAddress(resolvedAddress || recipient);
         setRecipient("");
         setAmount("");
         localStorage.removeItem("setra_draft_recipient");
@@ -207,6 +238,46 @@ function SendPageContent() {
       setLoading(false);
     }
   };
+
+  const filteredBeneficiaries = useMemo(() => {
+    if (!recipient) return [];
+    const q = recipient.toLowerCase().replace(/^@/, "");
+    return beneficiaries.filter(b =>
+      (b.recipient_tag && b.recipient_tag.toLowerCase().includes(q)) ||
+      b.recipient_address.toLowerCase().includes(q)
+    ).slice(0, 5);
+  }, [beneficiaries, recipient]);
+
+  async function handleSaveBeneficiary() {
+    if (!lastSentAddress) return;
+    setSavingBeneficiary(true);
+    try {
+      const res = await fetch("/api/beneficiaries", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient_tag: lastSentTag,
+          recipient_address: lastSentAddress,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        notify("Beneficiary saved!");
+      } else {
+        notify(data.error || "Failed to save beneficiary");
+      }
+    } catch {
+      notify("Failed to save beneficiary");
+    } finally {
+      setSavingBeneficiary(false);
+    }
+  }
+
+  function handleSelectBeneficiary(b: { recipient_tag: string | null; recipient_address: string }) {
+    setRecipient(b.recipient_tag ? `@${b.recipient_tag}` : b.recipient_address);
+    setShowBeneficiaryDropdown(false);
+  }
 
   return (
     <div className="space-y-8 pb-12 px-4 md:px-6">
@@ -239,29 +310,77 @@ function SendPageContent() {
                   </div>
                   <h3 className="text-2xl font-black text-foreground">Payment Sent!</h3>
                   <p className="text-muted-foreground mt-2">Your payment has been processed successfully.</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setCompleted(false)} 
-                    className="mt-8 h-11 rounded-xl font-bold w-full md:w-auto"
-                  >
-                    Send Another
-                  </Button>
+                  <div className="flex gap-3 mt-8">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCompleted(false)} 
+                      className="h-11 rounded-xl font-bold"
+                    >
+                      Send Another
+                    </Button>
+                    <Button 
+                      variant={lastSentAddress && !savingBeneficiary ? "default" : "outline"}
+                      onClick={handleSaveBeneficiary}
+                      disabled={!lastSentAddress || savingBeneficiary}
+                      className="h-11 rounded-xl font-bold"
+                    >
+                      {savingBeneficiary ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <UserPlus className="h-4 w-4 mr-2" />
+                      )}
+                      Save to Beneficiary
+                    </Button>
+                  </div>
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
 
-                  <div className="space-y-2 p-1">
+                  <div className="space-y-2 p-1" ref={recipientRef}>
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">
                       Recipient
                     </Label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
+                    <div className="flex gap-2 relative">
+                      <div className="flex-1 relative">
                         <RecipientInput
                           value={recipient}
-                          onChange={setRecipient}
-                          onValidationChange={(isValid) => setIsValidRecipient(isValid)}
+                          onChange={(v) => { setRecipient(v); setShowBeneficiaryDropdown(!!v && filteredBeneficiaries.length > 0); }}
+                          onValidationChange={(isValid, addr) => { setIsValidRecipient(isValid); setResolvedAddress(addr); }}
                           disabled={loading}
                         />
+                        {/* Beneficiary autocomplete dropdown */}
+                        <AnimatePresence>
+                          {showBeneficiaryDropdown && filteredBeneficiaries.length > 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border/40 rounded-xl shadow-xl overflow-hidden"
+                            >
+                              {filteredBeneficiaries.map(b => (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onClick={() => handleSelectBeneficiary(b)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-all border-b border-border/20 last:border-b-0"
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                                    {b.recipient_tag ? b.recipient_tag.slice(0, 2).toUpperCase() : "?"}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-foreground truncate">
+                                      {b.recipient_tag || "Address"}
+                                    </p>
+                                    <p className="text-xs font-mono text-muted-foreground/60 truncate">
+                                      {b.recipient_address.slice(0, 6)}...{b.recipient_address.slice(-6)}
+                                    </p>
+                                  </div>
+                                  <Users className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0" />
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                       <Button
                         type="button"
