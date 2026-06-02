@@ -119,6 +119,8 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
                 <SelectItem value="split_revenue">Split Revenue</SelectItem>
                 <SelectItem value="threshold_transfer">Threshold Transfer</SelectItem>
                 <SelectItem value="savings_sweep">Savings Sweep</SelectItem>
+                <SelectItem value="auto_invoice_pay">Auto Invoice Pay</SelectItem>
+                <SelectItem value="conditional_transfer">Conditional Transfer</SelectItem>
                 <SelectItem value="payroll_automation">Payroll Automation</SelectItem>
                 <SelectItem value="subscription_payment">Subscription Payment</SelectItem>
                 <SelectItem value="custom_intent">Custom Intent</SelectItem>

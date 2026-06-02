@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createNotification } from "@/lib/services/notification";
+import { evaluateUserThresholdWorkflows } from "@/lib/services/threshold";
 
 const getAdminClient = () => {
   return createClient(
@@ -101,6 +102,10 @@ async function handleOutboundTransaction(
       created_at: new Date().toISOString(),
     });
     console.log(`✅ Webhook recovered missing outbound transaction record for ${circleTxId}`);
+
+    if (isComplete && walletId) {
+      await evaluateUserThresholdWorkflows(supabase, profile.id, walletId);
+    }
     return;
   }
 
@@ -124,6 +129,17 @@ async function handleOutboundTransaction(
   }
 
   await tryAutoSplitInbound(supabase, destinationAddress, amount, txHash);
+
+  if (isComplete && existing?.user_id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("wallet_id")
+      .eq("id", existing.user_id)
+      .maybeSingle();
+    if (profile?.wallet_id) {
+      await evaluateUserThresholdWorkflows(supabase, existing.user_id, profile.wallet_id);
+    }
+  }
 }
 
 async function handleInboundTransaction(
@@ -162,7 +178,7 @@ async function handleInboundTransaction(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username")
+    .select("id, username, wallet_id")
     .eq("wallet_address", destinationAddress)
     .maybeSingle();
 
@@ -238,6 +254,13 @@ async function handleInboundTransaction(
   }
 
   await tryAutoSplitInbound(supabase, destinationAddress, amount, txHash);
+
+  if (profile?.id) {
+    const effectiveWalletId = walletId || profile.wallet_id;
+    if (effectiveWalletId) {
+      await evaluateUserThresholdWorkflows(supabase, profile.id, effectiveWalletId);
+    }
+  }
 }
 
 async function tryAutoSplitInbound(

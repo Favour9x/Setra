@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { executePayment } from "@/lib/payments";
+import { executePayment, getUSDCBalance } from "@/lib/payments";
 import { insertRecipientReceivedTransaction } from "@/lib/services/ledger";
 import { createNotification } from "@/lib/services/notification";
 
@@ -17,6 +17,7 @@ export interface Subscription {
   start_date: string | null;
   next_billing_date: string;
   created_at: string;
+  payer_wallet_id?: string | null;
 }
 
 const getAdminClient = () => {
@@ -142,20 +143,58 @@ export async function processDueSubscriptions(
 
   for (const subscription of dueSubscriptions) {
     try {
-      const { data: profile } = await client
-        .from("profiles")
-        .select("wallet_id")
-        .eq("id", subscription.user_id)
-        .maybeSingle();
+      let fromWalletId = subscription.payer_wallet_id;
+      if (!fromWalletId) {
+        const { data: profile } = await client
+          .from("profiles")
+          .select("wallet_id")
+          .eq("id", subscription.user_id)
+          .maybeSingle();
 
-      if (!profile?.wallet_id) {
+        if (!profile?.wallet_id) {
+          failCount++;
+          results.push({ id: subscription.id, success: false, error: "No wallet found" });
+          continue;
+        }
+        fromWalletId = profile.wallet_id;
+      }
+
+      const balanceStr = await getUSDCBalance(fromWalletId).catch(() => "0");
+      const balance = parseFloat(balanceStr);
+      if (balance < subscription.amount) {
+        const newRetryCount = (subscription.retry_count || 0) + 1;
+        if (newRetryCount >= 3) {
+          await client
+            .from("subscriptions")
+            .update({ status: "paused", retry_count: newRetryCount })
+            .eq("id", subscription.id);
+          await createNotification(
+            subscription.user_id,
+            "subscription_paused",
+            "Subscription Auto-Paused",
+            `Subscription "${subscription.name}" was paused after ${newRetryCount} failed payment attempts (insufficient balance: ${balance} USDC)`,
+            { subscription_id: subscription.id, retry_count: newRetryCount, reason: "insufficient_balance", balance }
+          );
+        } else {
+          await client
+            .from("subscriptions")
+            .update({ retry_count: newRetryCount })
+            .eq("id", subscription.id);
+          await createNotification(
+            subscription.user_id,
+            "subscription_renewal_failed",
+            "Insufficient Balance",
+            `Subscription "${subscription.name}" payment of ${subscription.amount} USDC failed — wallet has only ${balance} USDC (attempt ${newRetryCount})`,
+            { subscription_id: subscription.id, retry_count: newRetryCount, reason: "insufficient_balance", balance }
+          );
+        }
         failCount++;
-        results.push({ id: subscription.id, success: false, error: "No wallet found" });
+        results.push({ id: subscription.id, success: false, error: "Insufficient balance", retry_count: newRetryCount });
         continue;
       }
 
       const paymentResult = await executePayment({
-        fromWalletId: profile.wallet_id,
+        fromWalletId,
         toAddress: subscription.recipient_address,
         amount: String(subscription.amount),
         type: "USDC"
@@ -180,6 +219,13 @@ export async function processDueSubscriptions(
             .from("subscriptions")
             .update({ retry_count: newRetryCount })
             .eq("id", subscription.id);
+          await createNotification(
+            subscription.user_id,
+            "subscription_renewal_failed",
+            "Subscription Payment Failed",
+            `Subscription "${subscription.name}" payment failed (attempt ${newRetryCount}). Next retry will be on the next billing cycle.`,
+            { subscription_id: subscription.id, retry_count: newRetryCount }
+          );
         }
         failCount++;
         results.push({ id: subscription.id, success: false, error: paymentResult.error, retry_count: newRetryCount });

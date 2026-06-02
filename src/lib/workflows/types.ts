@@ -20,6 +20,7 @@ export type TriggerType =
   | "on_balance_threshold"   // Triggered when balance crosses threshold
   | "on_date_time"           // Triggered at specific date/time
   | "on_schedule"            // Triggered on recurring schedule
+  | "tip_received"           // Triggered when a tip is received
   | "manual";                // Manually triggered
 
 export type FrequencyType =

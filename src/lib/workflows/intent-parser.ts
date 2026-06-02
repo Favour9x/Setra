@@ -54,6 +54,16 @@ export function parseIntent(intent: string): ParsedIntent {
     return parseThresholdTransfer(intent, lowerIntent);
   }
   
+  // Auto invoice pay patterns
+  if (matchesAutoInvoicePay(lowerIntent)) {
+    return parseAutoInvoicePay(intent, lowerIntent);
+  }
+  
+  // Conditional transfer patterns
+  if (matchesConditionalTransfer(lowerIntent)) {
+    return parseConditionalTransfer(intent, lowerIntent);
+  }
+  
   // Direct payment intents without a date/time are immediate one-time payments.
   if (matchesDirectPayment(lowerIntent)) {
     return parseScheduledPayment(intent, lowerIntent);
@@ -100,6 +110,14 @@ function matchesSavingsSweep(intent: string): boolean {
 
 function matchesThresholdTransfer(intent: string): boolean {
   return /when.*balance|if.*balance|threshold|exceeds|above|below/.test(intent);
+}
+
+function matchesAutoInvoicePay(intent: string): boolean {
+  return /pay.*invoice|auto.*pay.*invoice|auto.*invoice|invoice.*auto/i.test(intent);
+}
+
+function matchesConditionalTransfer(intent: string): boolean {
+  return /if.*then|conditional|when.*then.*transfer/i.test(intent);
 }
 
 function matchesPayroll(intent: string): boolean {
@@ -284,6 +302,52 @@ function parseThresholdTransfer(original: string, intent: string): ParsedIntent 
     name: `Transfer when balance ${comparison === "greater_than" ? "exceeds" : "below"} ${threshold} USDC`,
     config,
     confidence: 0.82,
+    plain_english: config.plain_english || original
+  };
+}
+
+function parseAutoInvoicePay(original: string, intent: string): ParsedIntent {
+  const config: WorkflowConfig = {
+    max_amount_per_invoice: 1000,
+    description: original,
+    plain_english: "Automatically pay pending invoices up to 1000 USDC each.",
+    trigger: {
+      trigger_type: "on_funds_received" as TriggerType
+    }
+  };
+
+  return {
+    workflow_type: "auto_invoice_pay",
+    name: "Auto-Pay Invoices",
+    config,
+    confidence: 0.85,
+    plain_english: "Automatically pay pending invoices up to 1000 USDC each."
+  };
+}
+
+function parseConditionalTransfer(original: string, intent: string): ParsedIntent {
+  const payment = extractPayment(original);
+  const recipient = payment.recipient || "";
+  const token = payment.token || "USDC";
+
+  const config: WorkflowConfig = {
+    amount: payment.amount,
+    token,
+    recipient_address: recipient,
+    recipient_name: recipient,
+    description: original,
+    plain_english: `Send ${payment.amount} ${token} to ${recipient || "recipient"} when conditions are met.`,
+    trigger: {
+      trigger_type: "on_funds_received" as TriggerType,
+      conditions: {}
+    }
+  };
+
+  return {
+    workflow_type: "conditional_transfer",
+    name: `Conditional transfer to ${recipient || "recipient"}`,
+    config,
+    confidence: 0.8,
     plain_english: config.plain_english || original
   };
 }
@@ -500,6 +564,24 @@ export function validateIntentConfig(workflow_type: WorkflowType, config: Workfl
       }
       break;
       
+    case "auto_invoice_pay":
+      if (!config.max_amount_per_invoice || config.max_amount_per_invoice <= 0) {
+        errors.push("Max amount per invoice must be greater than 0");
+      }
+      break;
+
+    case "conditional_transfer":
+      if (!config.amount || config.amount <= 0) {
+        errors.push("Amount must be greater than 0");
+      }
+      if (!config.recipient_address) {
+        errors.push("Recipient address is required");
+      }
+      if (!config.token) {
+        errors.push("Token type is required");
+      }
+      break;
+
     case "payroll_automation":
       if (!config.recipients || config.recipients.length === 0) {
         errors.push("At least one payroll recipient is required");

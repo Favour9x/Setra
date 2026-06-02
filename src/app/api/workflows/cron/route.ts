@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { processScheduledWorkflows } from "@/lib/workflows/scheduler";
 import { processDueSubscriptions } from "@/lib/services/subscription";
+import { evaluateAllThresholdWorkflows } from "@/lib/services/threshold";
 
 /**
  * Cron endpoint for processing scheduled workflows
@@ -29,10 +30,13 @@ export async function GET(request: NextRequest) {
     );
     const subResult = await processDueSubscriptions(supabaseAdmin);
 
+    const thresholdResult = await evaluateAllThresholdWorkflows(supabaseAdmin);
+
     return NextResponse.json({
       success: true,
       workflows: workflowResult,
       subscriptions: subResult,
+      thresholds: thresholdResult,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {

@@ -3,6 +3,8 @@ import { getAdminSupabase, insertLedgerTransaction } from "@/lib/services/ledger
 import { createNotification } from "@/lib/services/notification";
 import { executePayment } from "@/lib/payments";
 
+const getAdminClient = () => getAdminSupabase();
+
 export interface TipsPage {
   id: string;
   user_id: string;
@@ -181,6 +183,8 @@ export async function processTipPayment(
       { link: "/tips", amount, payerAddress: senderAddress, payerUsername: senderUsername }
     );
 
+    await triggerTipAutoResponseWorkflows(client, tipsPage.user_id, amount, senderAddress, txHash);
+
     return { success: true, txHash };
   } else {
     await insertLedgerTransaction(client, {
@@ -304,4 +308,35 @@ export async function fetchTipsAnalytics(userId: string): Promise<{
   const bestTipper = Object.values(tipperTotals).sort((a, b) => b.total - a.total)[0] || null;
 
   return { thisWeekTotal, lastWeekTotal, bestTipper, bestDay: null };
+}
+
+async function triggerTipAutoResponseWorkflows(
+  client: any,
+  creatorId: string,
+  tipAmount: number,
+  tipperAddress: string,
+  txHash?: string
+) {
+  try {
+    const { data: workflows } = await client
+      .from("automation_workflows")
+      .select("*")
+      .eq("user_id", creatorId)
+      .eq("active", true)
+      .filter("config->trigger->>trigger_type", "eq", "tip_received");
+
+    if (!workflows || workflows.length === 0) return;
+
+    const { executeIntentWorkflow } = await import("@/lib/workflows/intent-engine");
+
+    for (const wf of workflows) {
+      await executeIntentWorkflow(wf, "tip_received", {
+        amount: tipAmount,
+        walletId: undefined,
+        tipperAddress,
+      }).catch((err: any) => console.error(`Tip auto-response workflow ${wf.id} failed:`, err));
+    }
+  } catch (err) {
+    console.error("Failed to trigger tip auto-response workflows:", err);
+  }
 }

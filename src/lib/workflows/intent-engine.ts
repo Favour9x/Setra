@@ -63,6 +63,7 @@ export async function executeIntentWorkflow(
     amount?: number;
     currentBalance?: number;
     walletId?: string;
+    tipperAddress?: string;
   }
 ): Promise<any> {
   console.log(`🚀 Intent Engine: Running workflow "${workflow.name}" of type ${workflow.workflow_type}`);

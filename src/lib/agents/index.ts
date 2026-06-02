@@ -278,7 +278,49 @@ export async function parseAgentPrompt(
     };
   }
 
-  // 3. AUTO INVOICE PAY INTENT
+  // 3. CONDITIONAL TRANSFER INTENT (e.g., "if I receive over 100 USDC then send 50 to @savings")
+  if ((normalized.includes("if") && (normalized.includes("transfer") || normalized.includes("pay") || normalized.includes("send"))) || normalized.includes("conditional")) {
+    const amountMatch = prompt.match(/\$?(\d+(?:\.\d{1,2})?)/);
+    const recipientMatch = prompt.match(/(@[a-zA-Z0-9_-]+|0x[a-fA-F0-9]{40})/);
+
+    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+    if (!recipientMatch) {
+      return {
+        success: false,
+        actionTaken: "unknown",
+        message: "Add a recipient username or wallet address to complete this conditional transfer."
+      };
+    }
+
+    const recipient = recipientMatch[0];
+    const resolvedAddress = await resolveIdentifier(recipient);
+
+    const workflow = await saveIntentWorkflow(userId, {
+      name: `Conditional Transfer: Send ${amount} USDC to ${recipient}`,
+      intent_prompt: prompt,
+      workflow_type: "conditional_transfer",
+      config: {
+        amount,
+        recipient_address: resolvedAddress,
+        recipient_name: recipient,
+        token: "USDC",
+        trigger: {
+          trigger_type: "on_funds_received",
+          conditions: { incoming_funds: true }
+        },
+        description: `Conditionally send ${amount} USDC to ${recipient} when triggered by incoming funds`
+      }
+    });
+
+    return {
+      success: true,
+      actionTaken: "create_payroll_workflow",
+      message: `Successfully configured conditional transfer: Send ${amount} USDC to ${recipient}.`,
+      data: workflow
+    };
+  }
+
+  // 4. AUTO INVOICE PAY INTENT
   if (normalized.includes("pay invoices automatically") || normalized.includes("auto pay invoices") || normalized.includes("automatic invoice")) {
     const workflow = await saveIntentWorkflow(userId, {
       name: "Auto-Pay Invoices",
@@ -303,7 +345,36 @@ export async function parseAgentPrompt(
     };
   }
 
-  // 4. REVENUE SPLIT INTENT
+  // 5. TIP AUTO-RESPONSE INTENT (e.g., "auto-respond to tips", "send thank you message when tipped")
+  if (normalized.includes("tip") && (normalized.includes("auto") || normalized.includes("respond") || normalized.includes("thank you") || normalized.includes("reply"))) {
+    const amountMatch = prompt.match(/\$?(\d+(?:\.\d{1,2})?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1]) : 5;
+
+    const workflow = await saveIntentWorkflow(userId, {
+      name: "Tip Auto-Response",
+      intent_prompt: prompt,
+      workflow_type: "scheduled_payment",
+      config: {
+        amount,
+        token: "USDC",
+        auto_pay: true,
+        trigger: {
+          trigger_type: "tip_received",
+          conditions: {}
+        },
+        description: `Auto-send ${amount} USDC thank-you to each tipper`
+      }
+    });
+
+    return {
+      success: true,
+      actionTaken: "create_payroll_workflow",
+      message: `Successfully configured intent: Auto-respond to tips with ${amount} USDC.`,
+      data: workflow
+    };
+  }
+
+  // 6. REVENUE SPLIT INTENT
   if (normalized.includes("split") || normalized.includes("share") || normalized.includes("divide")) {
     const splitRegex = /(\d+)%\s+(?:to|with|for)\s+(@[a-zA-Z0-9_-]+|0x[a-fA-F0-9]{40})/g;
     const splits: Array<{ name: string; address: string; percentage: number }> = [];
@@ -389,7 +460,7 @@ export async function parseAgentPrompt(
     }
   }
 
-  // 5. SCHEDULED / RECURRING PAYMENT INTENTS
+  // 7. SCHEDULED / RECURRING PAYMENT INTENTS
   const parsedPaymentIntent = parseIntent(prompt);
   const recipientMatch = parsedPaymentIntent.config.recipient_address
     ? [parsedPaymentIntent.config.recipient_address]

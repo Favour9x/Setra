@@ -16,7 +16,7 @@ Rules:
 
 Return ONLY valid JSON with this exact shape:
 {
-  "workflow_type": "split_revenue" | "savings_sweep" | "threshold_transfer" | "auto_invoice_pay" | "scheduled_payment" | "recurring_payment" | "custom_intent",
+  "workflow_type": "split_revenue" | "savings_sweep" | "threshold_transfer" | "auto_invoice_pay" | "scheduled_payment" | "recurring_payment" | "payroll_automation" | "subscription_payment" | "conditional_transfer" | "custom_intent",
   "name": "concise human-readable name",
   "config": {
     "amount": number | null,

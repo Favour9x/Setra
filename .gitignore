@@ -9,3 +9,5 @@ coverage/
 !.env.example
 dev-controlled-projects/output/
 .vercel
+*.tsbuildinfo
+eslint.config.mjs

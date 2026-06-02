@@ -33,6 +33,18 @@ export async function POST(
 
     if (!creatorProfile) return NextResponse.json({ error: "Creator not found" }, { status: 404 });
 
+    let payerWalletId: string | null = null;
+    if (senderAddress) {
+      const { data: tipperProfile } = await client
+        .from("profiles")
+        .select("wallet_id")
+        .eq("wallet_address", senderAddress)
+        .maybeSingle();
+      if (tipperProfile?.wallet_id) {
+        payerWalletId = tipperProfile.wallet_id;
+      }
+    }
+
     const { data: tipsPage } = await client
       .from("payment_links")
       .select("id, title")
@@ -55,6 +67,7 @@ export async function POST(
         frequency,
         status: "active",
         next_billing_date: nextBilling.toISOString(),
+        payer_wallet_id: payerWalletId,
       })
       .select()
       .single();
