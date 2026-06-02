@@ -359,7 +359,8 @@ export async function processRenewal(
         subscriptionName: subscription.name,
         blockchain: "ARC-TESTNET",
         transactionId: paymentResult.transactionId
-      }
+      },
+      created_at: new Date().toISOString()
     });
 
     if (txError) {
