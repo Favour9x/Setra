@@ -25,11 +25,22 @@ import {
   PiggyBank,
   CheckCircle2,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3,
+  Users,
+  GitBranch,
+  ToggleLeft,
+  ToggleRight,
+  ListTodo,
+  Gauge,
+  Crown
 } from "lucide-react";
 import { useNotify } from "@/components/ui/notification";
 import { motion, AnimatePresence } from "motion/react";
 import { formatAddress } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface WorkflowLog {
   id?: string;
@@ -122,7 +133,39 @@ export default function Page() {
     checkSubscription();
   }, []);
 
+  const activeCount = workflows.filter(w => w.active && w.status !== "completed").length;
+  const totalCount = workflows.length;
+  const succeededCount = workflows.reduce((sum, w) => sum + (w.executions?.filter(e => e.status === "success").length || 0), 0);
+  const failedCount = workflows.reduce((sum, w) => sum + (w.executions?.filter(e => e.status === "failed").length || 0), 0);
 
+  const handleToggleStatus = async (workflow: IntentWorkflow) => {
+    try {
+      const res = await fetch("/api/workflows", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: workflow.id, active: !workflow.active }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWorkflows(prev => prev.map(w => w.id === workflow.id ? { ...w, active: !w.active } : w));
+        setSelectedWorkflow(prev => prev?.id === workflow.id ? { ...prev, active: !prev.active } : prev);
+      } else {
+        notify(data.error || "Failed to update status", "error");
+      }
+    } catch (err: any) {
+      notify("Network error toggling status", "error");
+    }
+  };
+
+  const TEMPLATES = [
+    { label: "🎯 Split Revenue", prompt: "Split 50% to @alice and 50% to @bob for incoming revenue share" },
+    { label: "💰 Savings Sweep", prompt: "Save 15% of every incoming payment into savings wallet" },
+    { label: "📊 Threshold Transfer", prompt: "When balance exceeds 2000 USDC transfer 500 USDC to savings" },
+    { label: "📋 Payroll", prompt: "Pay 100 USDC to @alice and 200 USDC to @bob for payroll on the 1st of every month" },
+    { label: "🔄 Recurring Payment", prompt: "Pay 50 USDC to @creator every Friday at 5pm" },
+    { label: "🧾 Auto Invoice Pay", prompt: "Auto-pay pending invoices up to 200 USDC each" },
+  ];
 
   const generateSummary = (workflow: IntentWorkflow): string => {
     const config = workflow.config || {};
@@ -238,6 +281,9 @@ export default function Page() {
       case "split_revenue": return "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
       case "scheduled_payment":
       case "recurring_payment": return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      case "payroll_automation": return "bg-violet-500/10 text-violet-400 border border-violet-500/20";
+      case "conditional_transfer": return "bg-orange-500/10 text-orange-400 border border-orange-500/20";
+      case "subscription_payment": return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
       default: return "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20";
     }
   };
@@ -250,6 +296,9 @@ export default function Page() {
       case "split_revenue": return <Layers className="h-4 w-4" />;
       case "recurring_payment": return <RefreshCw className="h-4 w-4" />;
       case "scheduled_payment": return <Calendar className="h-4 w-4" />;
+      case "payroll_automation": return <Users className="h-4 w-4" />;
+      case "conditional_transfer": return <GitBranch className="h-4 w-4" />;
+      case "subscription_payment": return <RefreshCw className="h-4 w-4" />;
       default: return <Calendar className="h-4 w-4" />;
     }
   };
@@ -257,16 +306,104 @@ export default function Page() {
   return (
     <div className="space-y-8 pb-16 font-sans">
       {/* Header section */}
-      <div>
-        <p className="text-primary font-black text-xs uppercase tracking-[0.3em] mb-2 flex items-center gap-2">
-          <Activity className="h-3 w-3 text-primary animate-pulse" /> INTENT-BASED CASH OPS
-        </p>
-        <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white uppercase leading-none">
-          Programmable <span className="text-primary italic">Money Engine</span>
-        </h1>
-        <p className="text-muted-foreground/80 mt-2 text-md max-w-2xl font-medium">
-          Deploy AI-driven automation workflows with natural language instructions. Set schedules, revenue sweeps, triggers, and splits instantly.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-primary font-black text-xs uppercase tracking-[0.3em] mb-2 flex items-center gap-2">
+            <Activity className="h-3 w-3 text-primary animate-pulse" /> INTENT-BASED CASH OPS
+          </p>
+          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white uppercase leading-none">
+            Programmable <span className="text-primary italic">Money Engine</span>
+          </h1>
+          <p className="text-muted-foreground/80 mt-2 text-md max-w-2xl font-medium">
+            Deploy AI-driven automation workflows with natural language instructions. Set schedules, revenue sweeps, triggers, and splits instantly.
+          </p>
+        </div>
+        {subscriptionTier && (
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-2xl bg-zinc-950/80 border border-zinc-800">
+            <Gauge className={`h-4 w-4 ${activeCount >= (subscriptionTier === "free" ? 2 : 999) ? "text-rose-400" : "text-emerald-400"}`} />
+            <span className="text-xs font-black text-zinc-300">
+              {subscriptionTier === "free"
+                ? `${activeCount} / 2 Active`
+                : `${activeCount} Active`
+              }
+            </span>
+            {subscriptionTier === "free" && activeCount > 0 && (
+              <div className="w-16 h-1.5 bg-zinc-800 rounded-full overflow-hidden ml-1">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${(activeCount / 2) * 100}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Pro upgrade banner */}
+      {showUpgradePrompt && subscriptionTier === "free" && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-primary/5 to-amber-500/10 border border-amber-500/20 flex items-center gap-4 flex-wrap"
+        >
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+              <Crown className="h-3.5 w-3.5" /> Free Tier Active
+            </p>
+            <p className="text-xs font-bold text-zinc-400 mt-1">
+              You&apos;re on the free plan — max 2 active workflows. Upgrade to Pro for unlimited automations, payroll, and threshold triggers.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-zinc-500">{activeCount}/2 workflows used</span>
+            <div className="w-20 h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full transition-all"
+                style={{ width: `${Math.min((activeCount / 2) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { icon: Cpu, label: "Total Workflows", value: totalCount, color: "text-primary" },
+          { icon: Play, label: "Active", value: activeCount, color: "text-emerald-400" },
+          { icon: CheckCircle2, label: "Succeeded", value: succeededCount, color: "text-emerald-400" },
+          { icon: XCircle, label: "Failed", value: failedCount, color: "text-rose-400" },
+        ].map((stat, i) => (
+          <Card key={i} className="border-none bg-[#0b0c16]/60 border border-zinc-900 rounded-2xl">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-zinc-900/60 flex items-center justify-center border border-zinc-800">
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{stat.label}</p>
+                <p className={`text-lg font-black ${stat.color}`}>{stat.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Quick-start templates */}
+      <div className="flex flex-wrap gap-2">
+        <span className="text-[9px] font-black uppercase tracking-wider text-zinc-500 mr-1 self-center">Templates:</span>
+        {TEMPLATES.map((t, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              setPrompt(t.prompt);
+              setParsedPreview(null);
+              setPreviewPrompt("");
+            }}
+            className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-zinc-900/60 border border-zinc-800 text-zinc-400 hover:border-primary/30 hover:text-white hover:bg-zinc-800 transition-all"
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Spawning input */}
@@ -357,11 +494,30 @@ export default function Page() {
               <p className="text-xs font-bold uppercase tracking-widest">Hydrating state...</p>
             </div>
           ) : workflows.length === 0 ? (
-            <div className="py-20 border border-dashed border-zinc-800 rounded-3xl text-center flex flex-col items-center justify-center text-zinc-500">
-              <Cpu className="h-12 w-12 mb-4 opacity-20" />
-              <p className="text-xs font-black uppercase tracking-widest">No Active Workflows</p>
-              <p className="text-[11px] mt-1 text-zinc-600">Type or click a template above to generate automation rules.</p>
-            </div>
+            <EmptyState
+              icon={Cpu}
+              title="No Active Workflows"
+              description="Create your first automation by typing a prompt above or clicking a template."
+              className="py-20 border border-dashed border-zinc-800 rounded-3xl"
+              action={
+                <div className="flex flex-wrap justify-center gap-2 max-w-xs">
+                  {TEMPLATES.slice(0, 4).map((t, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setPrompt(t.prompt);
+                        setParsedPreview(null);
+                        setPreviewPrompt("");
+                        document.getElementById("intent")?.focus();
+                      }}
+                      className="text-[10px] font-bold px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800 text-zinc-400 hover:border-primary/30 hover:text-white hover:bg-zinc-800 transition-all"
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
           ) : (
             <div className="space-y-3">
               {workflows.map((wf) => {
@@ -410,6 +566,12 @@ export default function Page() {
                       </div>
 
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          checked={wf.active && wf.status !== "completed"}
+                          onCheckedChange={() => handleToggleStatus(wf)}
+                          disabled={wf.status === "completed"}
+                          className="data-[state=checked]:bg-emerald-500"
+                        />
                         <Button
                           size="icon"
                           variant="ghost"
