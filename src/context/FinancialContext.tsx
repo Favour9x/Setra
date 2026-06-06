@@ -536,8 +536,8 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         setUsername(null);
         setUsernameChangedAt(null);
         initialFetchDone.current = null;
+        setIsLoaded(true);
       }
-      setIsLoaded(true);
       return;
     }
 
