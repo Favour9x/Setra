@@ -42,17 +42,40 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create automation");
+        throw new Error(data.error || "Failed to parse intent");
+      }
+
+      // Determine final type/config:
+      // - If parser returned custom_intent or low confidence, use dropdown type
+      // - If parser has incomplete config (missing amount or recipient for payment types), force custom_intent
+      let finalType = workflowType;
+      let finalConfig = data.config || {};
+
+      if (data.workflow_type && data.workflow_type !== "custom_intent" && (data.confidence || 0) >= 0.5) {
+        const hasAmount = (finalConfig.amount || 0) > 0;
+        const hasRecipient = !!finalConfig.recipient_address || !!finalConfig.recipient_name;
+        const hasSplits = Array.isArray(finalConfig.splits) && finalConfig.splits.length > 0;
+        const hasRecipients = Array.isArray(finalConfig.recipients) && finalConfig.recipients.length > 0;
+
+        if (hasAmount || hasRecipient || hasSplits || hasRecipients || finalConfig.percentage) {
+          finalType = data.workflow_type;
+        } else {
+          finalType = "custom_intent";
+          finalConfig = { description: intent, plain_english: intent };
+        }
+      } else {
+        finalType = "custom_intent";
+        finalConfig = { description: intent, plain_english: intent };
       }
 
       const createResponse = await fetch("/api/workflows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: data.name,
+          name: data.name || intent.substring(0, 50),
           intent_prompt: intent,
-          workflow_type: data.workflow_type || workflowType,
-          config: data.config || {},
+          workflow_type: finalType,
+          config: finalConfig,
         }),
       });
 

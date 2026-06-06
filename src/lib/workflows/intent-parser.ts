@@ -587,6 +587,18 @@ export function validateIntentConfig(workflow_type: WorkflowType, config: Workfl
         errors.push("At least one payroll recipient is required");
       }
       break;
+
+    case "subscription_payment":
+      if (!config.amount || config.amount <= 0) {
+        errors.push("Amount must be greater than 0");
+      }
+      if (!config.recipient_address) {
+        errors.push("Recipient address is required");
+      }
+      if (!config.token) {
+        errors.push("Token type is required");
+      }
+      break;
   }
   
   return {
