@@ -46,7 +46,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       redirectGuard.current = true;
       router.push("/setup-username");
     }
-  }, [mounted, authLoading, user, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
+  }, [mounted, authLoading, user?.id, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);

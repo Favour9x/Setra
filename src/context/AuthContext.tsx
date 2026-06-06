@@ -79,10 +79,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Set loading to false when auth state changes
         // This ensures UI updates after sign in/out events
         setLoading(false);
-        
-        if (event === "SIGNED_OUT") {
-          router.refresh();
-        }
       }
     );
 
