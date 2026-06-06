@@ -87,7 +87,7 @@ function hydrateStateFromCache(): FinancialState {
 
 export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<FinancialState>(hydrateStateFromCache);
-  const [isLoaded, setIsLoaded] = useState(true);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isProcessingLocal, setIsProcessingLocal] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -208,9 +208,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       setIsLoaded(true);
       return;
     }
-    
-    // Immediately set isLoaded to true so UI renders instantly with cached data
-    setIsLoaded(true);
     
     // Set a timeout to prevent hanging
     const timeout = setTimeout(() => {
