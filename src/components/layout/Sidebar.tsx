@@ -365,110 +365,110 @@ export function Sidebar({ className, mode = "desktop", mobileOpen, onMobileClose
                     <Separator className="opacity-30" />
 
                     {/* Features list */}
-                    <div className="space-y-5 text-left">
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Calendar className="h-3.5 w-3.5" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Calendar className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Scheduled Payments</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Scheduled Payments</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Send payments at a specific date and time automatically
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Repeat className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Repeat className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Recurring Payments</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Recurring Payments</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Repeat payments on a set schedule without lifting a finger
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Users className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Users className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Split Revenue</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Split Revenue</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Automatically split payments between multiple people
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Gauge className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Gauge className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Threshold Transfer</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Threshold Transfer</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Trigger transfers when your balance hits a set amount
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <PiggyBank className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <PiggyBank className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Savings Sweep</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Savings Sweep</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Auto move a percentage of incoming payments to savings
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Receipt className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Receipt className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Auto Invoice Pay</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Auto Invoice Pay</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Pay invoices automatically when they are due
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <GitBranch className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <GitBranch className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Conditional Transfer</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Conditional Transfer</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Send payments only when specific conditions are met
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Zap className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Zap className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Payroll Automation</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Payroll Automation</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Pay your entire team their salaries automatically
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-4">
-                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Sparkles className="h-3.5 w-3.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Sparkles className="h-3 w-3" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-foreground">Subscription Payment</p>
-                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-xs font-black text-foreground">Subscription Payment</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 leading-snug">
                             Handle recurring subscription charges automatically
                           </p>
                         </div>
