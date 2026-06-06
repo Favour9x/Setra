@@ -35,6 +35,7 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
       const response = await fetch("/api/workflows/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ intent }),
       });
 
@@ -50,13 +51,15 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
         body: JSON.stringify({
           name: data.name,
           intent_prompt: intent,
-          workflow_type: workflowType,
+          workflow_type: data.workflow_type || workflowType,
           config: data.config || {},
         }),
       });
 
+      const createData = await createResponse.json();
+
       if (!createResponse.ok) {
-        throw new Error("Failed to save automation");
+        throw new Error(createData.error || "Failed to save automation");
       }
 
       toast({
