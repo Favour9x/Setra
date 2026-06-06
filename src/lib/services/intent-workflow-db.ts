@@ -142,32 +142,44 @@ export async function saveIntentWorkflow(
 
     if (wfErr) throw wfErr;
 
-    // Create trigger record if configured
+    // Create trigger record if configured (non-fatal if table missing)
     if (workflow.config.trigger) {
-      await client.from("workflow_triggers").insert({
-        workflow_id: newWf.id,
-        trigger_type: workflow.config.trigger.trigger_type,
-        conditions: workflow.config.trigger.conditions || {},
-        active: true
-      });
+      try {
+        await client.from("workflow_triggers").insert({
+          workflow_id: newWf.id,
+          trigger_type: workflow.config.trigger.trigger_type,
+          conditions: workflow.config.trigger.conditions || {},
+          active: true
+        });
+      } catch (e) {
+        console.warn("Could not create trigger record:", e);
+      }
     }
 
-    // Create schedule record if scheduled/recurring
+    // Create schedule record if scheduled/recurring (non-fatal if table missing)
     if (workflow.config.schedule) {
-      await client.from("workflow_schedules").insert({
-        workflow_id: newWf.id,
-        frequency: workflow.config.schedule.frequency || "one_time",
-        interval: workflow.config.schedule.interval || 1,
-        next_execution_at: workflow.config.schedule.next_execution_at || new Date().toISOString()
-      });
+      try {
+        await client.from("workflow_schedules").insert({
+          workflow_id: newWf.id,
+          frequency: workflow.config.schedule.frequency || "one_time",
+          interval: workflow.config.schedule.interval || 1,
+          next_execution_at: workflow.config.schedule.next_execution_at || new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn("Could not create schedule record:", e);
+      }
     }
 
-    // Create initial log
-    await client.from("workflow_logs").insert({
-      workflow_id: newWf.id,
-      log_level: "info",
-      message: `Workflow created from intent: "${workflow.intent_prompt}"`
-    });
+    // Create initial log (non-fatal if table missing)
+    try {
+      await client.from("workflow_logs").insert({
+        workflow_id: newWf.id,
+        log_level: "info",
+        message: `Workflow created from intent: "${workflow.intent_prompt}"`
+      });
+    } catch (e) {
+      console.warn("Could not create workflow log:", e);
+    }
 
     return {
       ...newWf,
