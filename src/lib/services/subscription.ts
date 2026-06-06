@@ -184,7 +184,7 @@ export async function processDueSubscriptions(
             subscription.user_id,
             "subscription_renewal_failed",
             "Insufficient Balance",
-            `Subscription "${subscription.name}" payment of ${subscription.amount} USDC failed — wallet has only ${balance} USDC (attempt ${newRetryCount})`,
+            `Subscription "${subscription.name}" payment of ${subscription.amount} USDC failed - wallet has only ${balance} USDC (attempt ${newRetryCount})`,
             { subscription_id: subscription.id, retry_count: newRetryCount, reason: "insufficient_balance", balance }
           );
         }

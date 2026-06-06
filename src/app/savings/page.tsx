@@ -529,19 +529,19 @@ export default function SavingsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="flexible">Flexible — Withdraw anytime</SelectItem>
-                      <SelectItem value="locked">Locked — Locked until conditions met</SelectItem>
+                      <SelectItem value="flexible">Flexible - Withdraw anytime</SelectItem>
+                      <SelectItem value="locked">Locked - Locked until conditions met</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {newGoal.vault_type === "locked" && (
                   <>
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lock Until Amount (USDC) — optional</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lock Until Amount (USDC) - optional</Label>
                       <Input type="number" value={newGoal.locked_until_amount} onChange={e => setNewGoal(p => ({ ...p, locked_until_amount: e.target.value }))} placeholder="Min amount before withdrawal allowed" className="h-11 rounded-xl bg-muted/30 border-none font-bold" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Target Date — optional</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Target Date - optional</Label>
                       <Input type="date" value={newGoal.target_date} onChange={e => setNewGoal(p => ({ ...p, target_date: e.target.value }))} className="h-11 rounded-xl bg-muted/30 border-none font-bold" />
                     </div>
                   </>

@@ -548,7 +548,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchData]);
 
   // Dedicated balance refresh function with retry mechanism
-  // Fully self-healing: does NOT require walletId — the server looks it up or creates it
+  // Fully self-healing: does NOT require walletId - the server looks it up or creates it
   const refreshBalance = useCallback(async () => {
     console.log('🔄 Refreshing balance with retry mechanism...');
     
@@ -614,7 +614,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   }, [walletId]);
 
   // Auto-fetch balance on mount and whenever user changes
-  // refreshBalance is self-healing — handles wallet creation/lookup on the server
+  // refreshBalance is self-healing - handles wallet creation/lookup on the server
   useEffect(() => {
     if (user) {
       console.log('💰 Auto-fetching balance');

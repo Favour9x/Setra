@@ -96,13 +96,13 @@ export async function POST(request: NextRequest) {
       throw updateError;
     }
 
-    // 3. Notify the invoice creator: "Payment claimed for invoice [title] — verifying onchain"
+    // 3. Notify the invoice creator: "Payment claimed for invoice [title] - verifying onchain"
     try {
       await createNotification(
         invoice.user_id,
         "payment_request",
         "Payment Claimed",
-        `Payment claimed for invoice "${invoice.title}" — verifying onchain`,
+        `Payment claimed for invoice "${invoice.title}" - verifying onchain`,
         {
           invoice_id: invoice.id,
           title: invoice.title,

@@ -312,7 +312,7 @@ export async function payInvoice(
       invoice.user_id,
       "payment_received",
       "Invoice Payment Submitted",
-      `${payerDisplay} has submitted payment of ${invoice.amount} USDC — confirming on-chain`,
+      `${payerDisplay} has submitted payment of ${invoice.amount} USDC - confirming on-chain`,
       {
         invoice_id: invoiceId,
         amount: invoice.amount,

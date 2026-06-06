@@ -43,10 +43,10 @@ interface Subscription {
 }
 
 function formatDateTime(dateStr: string | null) {
-  if (!dateStr) return "—";
+  if (!dateStr) return "-";
   const hasTz = /[Z+-]\d{2}:\d{2}$/.test(dateStr) || dateStr.endsWith("Z");
   const d = new Date(hasTz ? dateStr : dateStr + "Z");
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
     hour: "2-digit", minute: "2-digit"
@@ -239,7 +239,7 @@ export default function Page() {
           <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase leading-none">
             Subscriptions & <span className="text-primary italic">Recurrings</span>
           </h1>
-          <p className="text-muted-foreground mt-3 text-lg font-medium opacity-80 max-w-xl">Manage and track all your subscriptions and recurring payments in one place.</p>
+          <p className="text-muted-foreground mt-3 text-lg font-medium opacity-80 max-w-xl">Manage and track all your subscriptions and recurring payments in one place</p>
         </div>
         <div>
           <Button 

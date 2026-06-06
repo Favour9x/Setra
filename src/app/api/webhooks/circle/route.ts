@@ -92,9 +92,11 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     message: "Circle webhook endpoint",
     usage: [
-      "POST — Receive webhook notifications from Circle",
-      "GET ?action=setup&endpoint=URL — register webhook subscription",
-      "GET ?action=list — list existing subscriptions",
+"POST - Receive webhook notifications from Circle",
+
+      "GET ?action=setup&endpoint=URL - register webhook subscription",
+
+      "GET ?action=list - list existing subscriptions",
     ],
   });
 }
