@@ -525,27 +525,36 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, user?.email, supabase, notify]);
 
+  const prevUserId = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
-    if (!user) {
-      setState(INITIAL_STATE);
-      setWalletId(null);
-      setWalletAddress(null);
-      setUsername(null);
-      setUsernameChangedAt(null);
-      initialFetchDone.current = null;
+    const uid = user?.id;
+
+    if (!uid) {
+      if (prevUserId.current) {
+        prevUserId.current = null;
+        setState(INITIAL_STATE);
+        setWalletId(null);
+        setWalletAddress(null);
+        setUsername(null);
+        setUsernameChangedAt(null);
+        initialFetchDone.current = null;
+      }
       setIsLoaded(true);
       return;
     }
-    
-    if (initialFetchDone.current !== user.id) {
-      console.log("🚀 FinancialContext - Triggering initial data fetch for user:", user.id);
+
+    prevUserId.current = uid;
+
+    if (initialFetchDone.current !== uid) {
+      console.log("🚀 FinancialContext - Triggering initial data fetch for user:", uid);
       fetchData().then(() => {
-        initialFetchDone.current = user.id;
+        initialFetchDone.current = uid;
       }).catch(() => {
         console.warn("⚠️ Initial fetch failed, will retry on re-render");
       });
     }
-  }, [user, fetchData]);
+  }, [user?.id, fetchData]);
 
   // Dedicated balance refresh function with retry mechanism
   // Fully self-healing: does NOT require walletId - the server looks it up or creates it

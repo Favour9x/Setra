@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
@@ -34,13 +34,16 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [authLoading]);
 
+  const redirectGuard = useRef(false);
+
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
     if (!user) {
       router.push("/login");
       return;
     }
-    if (isLoaded && !username && !isSetupUsernamePage) {
+    if (isLoaded && !username && !isSetupUsernamePage && !redirectGuard.current) {
+      redirectGuard.current = true;
       router.push("/setup-username");
     }
   }, [mounted, authLoading, user, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
