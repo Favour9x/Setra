@@ -1,6 +1,5 @@
-const CACHE_NAME = "setra-v1";
-const URLS_TO_CACHE = [
-  "/",
+const CACHE_NAME = "setra-v2";
+const STATIC_URLS = [
   "/manifest.json",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
@@ -9,12 +8,17 @@ const URLS_TO_CACHE = [
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(URLS_TO_CACHE);
+      return cache.addAll(STATIC_URLS);
     })
   );
 });
 
 self.addEventListener("fetch", (event) => {
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       if (response) return response;
