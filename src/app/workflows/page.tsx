@@ -351,7 +351,7 @@ export default function Page() {
               <Crown className="h-3.5 w-3.5" /> Free Tier Active
             </p>
             <p className="text-xs font-bold text-zinc-400 mt-1">
-              You&apos;re on the free plan — max 2 active workflows. Upgrade to Pro for unlimited automations, payroll, and threshold triggers.
+              You&apos;re on the free plan, max 2 active workflows. Upgrade to Pro for unlimited automations, payroll, and threshold triggers.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -497,7 +497,7 @@ export default function Page() {
             <EmptyState
               icon={Cpu}
               title="No Active Workflows"
-              description="Create your first automation by typing a prompt above or clicking a template."
+              description="Create your first automation by typing a prompt above or clicking a template"
               className="py-20 border border-dashed border-zinc-800 rounded-3xl"
               action={
                 <div className="flex flex-wrap justify-center gap-2 max-w-xs">

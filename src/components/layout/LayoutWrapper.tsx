@@ -8,6 +8,9 @@ import { PageTransition } from "@/components/layout/PageTransition";
 import { SettingsModal } from "@/components/dashboard/SettingsModal";
 import { useFinancial } from "@/context/FinancialContext";
 import { useAuth } from "@/context/AuthContext";
+import { AnimatePresence } from "motion/react";
+import { Menu, PiggyBank } from "lucide-react";
+import Link from "next/link";
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +19,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { loading: authLoading, user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [authTimeout, setAuthTimeout] = useState(false);
-  
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/diag") || pathname?.startsWith("/pay/");
   const isSetupUsernamePage = pathname?.startsWith("/setup-username");
 
@@ -24,34 +28,31 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Safety timeout: if auth is still loading after 4 seconds, continue anyway
   useEffect(() => {
     if (!authLoading) return;
     const t = setTimeout(() => setAuthTimeout(true), 4000);
     return () => clearTimeout(t);
   }, [authLoading]);
 
-  // Redirect logic in useEffect to avoid render-time state updates
-  // MUST be before early returns to maintain hooks order
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
-
     if (!user) {
       router.push("/login");
       return;
     }
-
     if (isLoaded && !username && !isSetupUsernamePage) {
       router.push("/setup-username");
     }
   }, [mounted, authLoading, user, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
 
-  // For auth pages, render immediately without loading checks
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
+
   if (isAuthPage) {
     return <main className="min-h-screen font-sans antialiased">{children}</main>;
   }
 
-  // For protected pages, show loading state (with safety timeout)
   if (!mounted || (authLoading && !authTimeout)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
@@ -62,7 +63,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Show loading while redirecting (briefly shown during router.push transitions)
   if (!user || (isLoaded && !username && !isSetupUsernamePage)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
@@ -77,13 +77,40 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     <div className="font-sans antialiased">
       <SettingsModal />
       <div className="flex h-screen overflow-hidden">
-        {/* Desktop Sidebar */}
-        <Sidebar mode="desktop" className="w-72 flex-shrink-0" />
-        
-        <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Desktop Sidebar - always visible */}
+        <div className="hidden md:flex flex-col h-screen flex-shrink-0">
+          <Sidebar mode="desktop" className="w-72" />
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <Sidebar mode="mobile" mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
+          )}
+        </AnimatePresence>
+
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          {/* Mobile header with hamburger */}
+          <div className="md:hidden flex items-center justify-between px-4 h-14 bg-card/80 backdrop-blur-md border-b border-border/30 flex-shrink-0">
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="h-9 w-9 rounded-xl bg-muted/30 flex items-center justify-center text-foreground hover:bg-muted/50 transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-black text-sm">S</span>
+              </div>
+              <span className="text-lg font-black tracking-tighter text-foreground uppercase">Setra</span>
+            </Link>
+            <div className="w-9" />
+          </div>
+
           {pathname !== "/" && pathname !== "/dashboard" && <Navbar />}
-          
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6 bg-background/50">
+
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background/50">
             <div className="max-w-7xl mx-auto">
               <PageTransition>
                 {children}
@@ -92,9 +119,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
-      
-      {/* Mobile Bottom Tab Bar */}
-      <Sidebar mode="mobile" />
     </div>
   );
 }

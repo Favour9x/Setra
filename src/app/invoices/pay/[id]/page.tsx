@@ -156,7 +156,7 @@ export default function PublicInvoicePayPage() {
           <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4 opacity-85 animate-pulse" />
           <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">Invoice Undelivered</h2>
           <p className="text-muted-foreground mt-3 text-sm font-medium leading-relaxed">
-            {error || "The requested invoice could not be found or has been revoked."}
+            {error || "The requested invoice could not be found or has been revoked"}
           </p>
           <div className="mt-8">
             <Link href="/">
@@ -337,7 +337,7 @@ export default function PublicInvoicePayPage() {
                         <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input 
                           id="payerAddress"
-                          placeholder="e.g. 0xYourWalletAddress..."
+                          placeholder="e.g. 0xYourWalletAddress"
                           className="pl-11 h-12 bg-muted/40 border-none rounded-xl focus-visible:ring-primary/20 focus-visible:ring-offset-0 transition-all font-mono font-bold text-xs"
                           value={payerAddress}
                           onChange={(e) => setPayerAddress(e.target.value)}

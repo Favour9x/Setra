@@ -67,7 +67,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
 
   const handlePayClick = () => {
     if (!invoice) return;
-    if (balance === null) { notify("Balance is loading. Please wait a moment."); return; }
+    if (balance === null) { notify("Balance is loading. Please wait a moment"); return; }
     if (balance < invoice.amount) { notify("Insufficient balance. You need " + invoice.amount + " USDC"); return; }
     setShowConfirmModal(true);
   };
@@ -225,7 +225,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                 <div className="space-y-0.5">
                   <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">USDC Balance</span>
                   <p className="text-sm font-black text-foreground">
-                    {balance !== null ? balance.toLocaleString() : "Loading..."} USDC
+                    {balance !== null ? balance.toLocaleString() : "Loading"} USDC
                   </p>
                 </div>
               </div>

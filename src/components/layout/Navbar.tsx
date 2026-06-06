@@ -252,6 +252,8 @@ export function Navbar() {
                               router.push("/subscriptions");
                             } else if (n.type === "workflow_executed") {
                               router.push("/workflows");
+                            } else if (n.type === "savings_goal_reached") {
+                              router.push("/savings");
                             }
                           }}
                           className={`flex gap-3 p-3 rounded-xl hover:bg-muted/40 transition-all text-left cursor-pointer relative ${
@@ -350,7 +352,7 @@ export function Navbar() {
                   </Button>
                 </div>
                 <div className="flex flex-col items-center gap-4 py-4">
-                  <div className="p-4 bg-white rounded-xl">
+                  <div className="p-4 bg-card rounded-xl">
                     <QRCode 
                       id="navbar-my-qr-code"
                       value={walletAddress} 

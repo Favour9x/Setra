@@ -96,7 +96,7 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
         <div className="space-y-6 py-4">
           <div className="space-y-3">
             <Textarea
-              placeholder="Describe your payment rule in plain english..."
+              placeholder="Describe your payment rule in plain english"
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
               className="min-h-[150px] resize-none rounded-xl bg-muted/30 border-none focus-visible:ring-primary/20 font-semibold"

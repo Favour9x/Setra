@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: undefined,
   images: {
     remotePatterns: [
       {
@@ -15,7 +16,6 @@ const nextConfig: NextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Exclude Circle SDK from client-side bundle
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -25,6 +25,18 @@ const nextConfig: NextConfig = {
       };
     }
     return config;
+  },
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
   },
   async rewrites() {
     return [

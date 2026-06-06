@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,8 @@ import { RecipientInput } from "@/components/ui/RecipientInput";
 import { useAuth } from "@/context/AuthContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { createClient } from "@/lib/supabase-client";
+import { useJsonFetch, getCachedData, setCachedData } from "@/hooks/useApiData";
+import { InvoiceRowSkeleton, StatCardSkeleton } from "@/components/ui/PageSkeletons";
 
 interface Invoice {
   id: string;
@@ -42,6 +44,8 @@ interface Invoice {
   created_at: string;
 }
 
+const INVOICES_CACHE_KEY = "invoices_data";
+
 export default function InvoicesPage() {
   const { notify } = useNotify();
   const router = useRouter();
@@ -49,7 +53,7 @@ export default function InvoicesPage() {
   const { walletAddress } = useFinancial();
   const [invoiceSubTab, setInvoiceSubTab] = useState<"sent" | "received">("sent");
   
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>(() => getCachedData<Invoice[]>(INVOICES_CACHE_KEY) || []);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -110,22 +114,23 @@ export default function InvoicesPage() {
     }
   }, []);
 
-  const fetchUserInvoices = async () => {
+  const fetchUserInvoices = useCallback(async () => {
     try {
       setLoadingInvoices(true);
       const res = await fetch("/api/invoices", { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setInvoices(data.invoices || []);
+        setCachedData(INVOICES_CACHE_KEY, data.invoices || []);
       } else {
         notify(data.error || "Failed to load invoices");
       }
     } catch (err: any) {
-      notify("Network error fetching invoices");
+      console.error("Invoice fetch error:", err);
     } finally {
       setLoadingInvoices(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUserInvoices();
@@ -337,7 +342,7 @@ export default function InvoicesPage() {
                   <div className="relative w-full md:w-48">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      placeholder="Search title..." 
+                      placeholder="Search title" 
                       className="pl-9 h-10 bg-muted/40 border-none rounded-xl text-xs font-semibold focus-visible:ring-primary/20"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
@@ -348,11 +353,8 @@ export default function InvoicesPage() {
             </CardHeader>
             <CardContent className="p-8 pt-0">
               <div className="mt-6 space-y-4">
-                {loadingInvoices ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-                    <p className="text-sm font-bold uppercase tracking-widest">Syncing ledger...</p>
-                  </div>
+                {loadingInvoices && invoices.length === 0 ? (
+                  Array.from({ length: 4 }).map((_, i) => <InvoiceRowSkeleton key={i} />)
                 ) : filteredInvoices.length === 0 ? (
                   <div className="py-16 text-center text-muted-foreground flex flex-col items-center justify-center">
                     <Receipt className="h-16 w-16 mb-4 opacity-10" />

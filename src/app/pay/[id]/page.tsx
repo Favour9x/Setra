@@ -160,7 +160,7 @@ export default function PayPage() {
     if (!tipsPage || !displayAmount) return notify("Select an amount");
     if (displayAmount <= 0) return notify("Invalid amount");
     if (!user) return notify("You must be logged in to send a tip");
-    if (!walletId) return notify("Wallet not ready. Please try again in a moment.");
+    if (!walletId) return notify("Wallet not ready. Please try again in a moment");
     if (!paramId || typeof paramId !== "string") return notify("Invalid page URL");
 
     setPaying(true);
@@ -268,7 +268,7 @@ export default function PayPage() {
                   </div>
                   <div className="space-y-2.5">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your name or wallet</Label>
-                    <Input placeholder="e.g. @favour11 or 0x..." value={payerName} onChange={(e) => setPayerName(e.target.value)} disabled={paying} className="h-12 px-4 rounded-xl bg-muted/30 border-none font-bold" />
+                    <Input placeholder="e.g. @favour11 or 0x" value={payerName} onChange={(e) => setPayerName(e.target.value)} disabled={paying} className="h-12 px-4 rounded-xl bg-muted/30 border-none font-bold" />
                   </div>
                   <Button onClick={async () => {
                     if (!effectiveAmount) return notify("Enter amount");
@@ -470,7 +470,7 @@ export default function PayPage() {
                       {topSupporters.slice(0, 5).map((s, i) => (
                         <div key={s.sender_address + i} className="flex items-center justify-between p-2 rounded-lg bg-muted/20">
                           <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black ${i === 0 ? "bg-amber-500/20 text-amber-600" : i === 1 ? "bg-slate-400/20 text-slate-500" : i === 2 ? "bg-orange-600/20 text-orange-700" : "bg-muted-foreground/10 text-muted-foreground/60"}`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black ${i === 0 ? "bg-amber-500/20 text-amber-600" : i === 1 ? "bg-slate-400/20 text-slate-500 dark:text-slate-300" : i === 2 ? "bg-orange-600/20 text-orange-700" : "bg-muted-foreground/10 text-muted-foreground/60"}`}>
                               {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
                             </span>
                             <span className="text-xs font-bold">{s.sender_username ? `@${s.sender_username}` : formatAddress(s.sender_address)}</span>
@@ -542,7 +542,7 @@ export default function PayPage() {
                     {/* Message */}
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Message (optional)</Label>
-                      <Textarea placeholder="Say something nice..." value={tipMessage} onChange={(e) => setTipMessage(e.target.value)} className="rounded-xl bg-muted/30 border-none text-sm min-h-[60px]" />
+                      <Textarea placeholder="Say something nice" value={tipMessage} onChange={(e) => setTipMessage(e.target.value)} className="rounded-xl bg-muted/30 border-none text-sm min-h-[60px]" />
                     </div>
 
                     {!user ? (
@@ -590,7 +590,7 @@ export default function PayPage() {
           <div className="text-center pt-8 pb-4">
             <div className="inline-flex flex-col items-center gap-3 p-4 rounded-2xl bg-card/50 border border-border/20">
               <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Share this page</p>
-              <div className="p-2 bg-white rounded-xl">
+              <div className="p-2 bg-card rounded-xl">
                 <QRCode value={typeof window !== "undefined" ? window.location.href : ""} size={140} level="H" />
               </div>
               <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black" onClick={() => { navigator.clipboard.writeText(window.location.href); notify("Link copied!"); }}>

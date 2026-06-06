@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -18,6 +18,9 @@ import {
 import { useNotify } from "@/components/ui/notification";
 import { motion } from "motion/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { getCachedData, setCachedData } from "@/hooks/useApiData";
+import { AnalyticsMetricSkeleton, ChartSkeleton } from "@/components/ui/PageSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Metrics {
   totalVolume: number;
@@ -30,13 +33,16 @@ interface Metrics {
   expenseSum: number;
 }
 
+const ANALYTICS_CACHE_KEY = "analytics_data";
+
 export default function Page() {
   const { notify } = useNotify();
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [graphData, setGraphData] = useState<any[]>([]);
+  const cachedAnalytics = getCachedData<{ metrics: Metrics | null; graphData: any[] }>(ANALYTICS_CACHE_KEY);
+  const [metrics, setMetrics] = useState<Metrics | null>(cachedAnalytics?.metrics || null);
+  const [graphData, setGraphData] = useState<any[]>(cachedAnalytics?.graphData || []);
   const [loading, setLoading] = useState(true);
 
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/analytics", { credentials: "include" });
@@ -44,25 +50,35 @@ export default function Page() {
       if (data.success) {
         setMetrics(data.metrics);
         setGraphData(data.graphData || []);
+        setCachedData(ANALYTICS_CACHE_KEY, { metrics: data.metrics, graphData: data.graphData || [] });
       } else {
         notify(data.error || "Failed to load revenue metrics");
       }
     } catch (err: any) {
-      notify("Analytics network query error");
+      if (!metrics) notify("Analytics network query error");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAnalyticsData();
   }, []);
 
-  if (loading) {
+  if (loading && !metrics) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center text-muted-foreground">
-        <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
-        <p className="text-sm font-black uppercase tracking-widest">Hydrating intelligence dashboard...</p>
+      <div className="space-y-10 pb-12 px-4 md:px-6 relative">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <Skeleton className="h-3 w-32 mb-3" />
+            <Skeleton className="h-9 w-64 mb-2" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+        </div>
+        <div className="grid gap-6 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => <AnalyticsMetricSkeleton key={i} />)}
+        </div>
+        <ChartSkeleton />
       </div>
     );
   }

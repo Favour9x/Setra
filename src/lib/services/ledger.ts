@@ -148,6 +148,29 @@ export async function insertRecipientReceivedTransaction(
     console.error("❌ Failed to insert recipient received transaction:", error.message);
   } else {
     console.log(`✅ Received transaction recorded for user ${recipientProfile.id}`);
+
+    // Trigger auto-save rules (percentage of incoming)
+    try {
+      const { data: savingsRules } = await client
+        .from("savings_auto_rules")
+        .select("*, savings_goals!inner(id, saved_amount, target_amount, user_id)")
+        .eq("user_id", recipientProfile.id)
+        .eq("rule_type", "percentage")
+        .eq("active", true);
+
+      for (const rule of savingsRules || []) {
+        const pct = Number(rule.percentage) / 100;
+        const saveAmt = Math.round(params.amount * pct * 100) / 100;
+        if (saveAmt <= 0) continue;
+        const goal = rule.savings_goals;
+        if (!goal) continue;
+        const newSaved = Number(goal.saved_amount) + saveAmt;
+        await client.from("savings_goals").update({ saved_amount: newSaved, updated_at: new Date().toISOString() }).eq("id", rule.goal_id);
+        await client.from("savings_transactions").insert({ goal_id: rule.goal_id, user_id: recipientProfile.id, type: "deposit", amount: saveAmt });
+      }
+    } catch (e) {
+      console.error("Auto-save trigger error in ledger:", e);
+    }
   }
 }
 

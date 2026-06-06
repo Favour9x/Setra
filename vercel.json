@@ -3,6 +3,13 @@
     {
       "path": "/api/workflows/cron",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/savings/cron-fixed",
+      "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
 }

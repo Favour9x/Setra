@@ -15,6 +15,7 @@ import { RecipientInput } from "@/components/ui/RecipientInput";
 import { QRCode } from "react-qr-code";
 import { Html5Qrcode } from "html5-qrcode";
 import { useSearchParams } from "next/navigation";
+import { SendPageSkeleton } from "@/components/ui/PageSkeletons";
 
 function SendPageContent() {
   const { refreshData, refreshBalance, walletAddress, balance, walletId } = useFinancial();
@@ -192,7 +193,7 @@ function SendPageContent() {
     }
 
     if (!walletId) {
-      notify("No wallet found. Please create a wallet first.");
+      notify("No wallet found. Please create a wallet first");
       return;
     }
 
@@ -479,12 +480,12 @@ function SendPageContent() {
               <CardHeader className="p-6 text-center">
                 <CardTitle className="text-lg flex items-center justify-center gap-2">
                   <QrCode className="h-5 w-5 text-primary" />
-                  Your QR Code — Share to receive payments
+                  Your QR Code  Share to receive payments
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-0">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="p-4 bg-white rounded-xl">
+                  <div className="p-4 bg-card rounded-xl">
                     <QRCode 
                       id="my-qr-code"
                       value={walletAddress} 
@@ -549,11 +550,7 @@ function SendPageContent() {
 
 export default function Page() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    }>
+    <Suspense fallback={<SendPageSkeleton />}>
       <SendPageContent />
     </Suspense>
   );

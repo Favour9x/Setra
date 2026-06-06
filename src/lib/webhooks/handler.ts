@@ -215,6 +215,32 @@ async function handleInboundTransaction(
     { amount, tx_hash: txHash, link: "/transactions" }
   );
 
+  // Trigger auto-save rules (percentage of incoming)
+  try {
+    const { data: savingsRules } = await supabase
+      .from("savings_auto_rules")
+      .select("*, savings_goals!inner(id, saved_amount, target_amount, user_id)")
+      .eq("user_id", profile.id)
+      .eq("rule_type", "percentage")
+      .eq("active", true);
+
+    for (const rule of savingsRules || []) {
+      const pct = Number(rule.percentage) / 100;
+      const saveAmt = Math.round(amount * pct * 100) / 100;
+      if (saveAmt <= 0) continue;
+      const goal = rule.savings_goals;
+      if (!goal) continue;
+      const newSaved = Number(goal.saved_amount) + saveAmt;
+      await supabase.from("savings_goals").update({ saved_amount: newSaved, updated_at: new Date().toISOString() }).eq("id", rule.goal_id);
+      await supabase.from("savings_transactions").insert({ goal_id: rule.goal_id, user_id: profile.id, type: "deposit", amount: saveAmt });
+      if (newSaved >= Number(goal.target_amount)) {
+        await createNotification(profile.id, "savings_goal_reached", "Savings Goal Reached", `You reached your savings goal: ${goal.name}`, { goal_id: rule.goal_id });
+      }
+    }
+  } catch (e) {
+    console.error("Auto-save trigger error:", e);
+  }
+
   const { data: invoices } = await supabase
     .from("invoices")
     .select("id, title, amount, status, user_id")

@@ -30,6 +30,7 @@ interface FinancialContextType extends FinancialState {
 
 const STORAGE_KEY_SETTINGS = "setra_user_settings";
 const STORAGE_KEY_PROFILE = "setra_user_profile";
+const STORAGE_KEY_STATE = "setra_financial_state_snapshot";
 
 const DEFAULT_SETTINGS: UserSettings = {
   theme: "system",
@@ -59,9 +60,34 @@ const INITIAL_STATE: FinancialState = {
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
+function hydrateStateFromCache(): FinancialState {
+  if (typeof window === "undefined") return INITIAL_STATE;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_STATE);
+    if (!raw) return INITIAL_STATE;
+    const cached = JSON.parse(raw);
+    if (!cached.timestamp) return INITIAL_STATE;
+    if (Date.now() - cached.timestamp > 5 * 60 * 1000) {
+      localStorage.removeItem(STORAGE_KEY_STATE);
+      return INITIAL_STATE;
+    }
+    return {
+      balance: cached.balance ?? INITIAL_STATE.balance,
+      transactions: cached.transactions ?? INITIAL_STATE.transactions,
+      activities: cached.activities ?? INITIAL_STATE.activities,
+      invoiceCount: cached.invoiceCount ?? INITIAL_STATE.invoiceCount,
+      invoices: cached.invoices ?? INITIAL_STATE.invoices,
+      settings: cached.settings ?? INITIAL_STATE.settings,
+      profile: cached.profile ?? INITIAL_STATE.profile,
+    };
+  } catch {
+    return INITIAL_STATE;
+  }
+}
+
 export function FinancialProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<FinancialState>(INITIAL_STATE);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [state, setState] = useState<FinancialState>(hydrateStateFromCache);
+  const [isLoaded, setIsLoaded] = useState(true);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isProcessingLocal, setIsProcessingLocal] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -72,6 +98,28 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { notify } = useNotify();
   const { setThemeMode } = useTheme();
+
+  const WALLET_CACHE_KEY = "setra_wallet_cache";
+
+  // Persist state snapshot to localStorage after meaningful data arrives
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!state.balance && state.transactions.length === 0) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY_STATE,
+        JSON.stringify({
+          balance: state.balance,
+          transactions: state.transactions.slice(0, 50),
+          activities: state.activities.slice(0, 50),
+          invoiceCount: state.invoiceCount,
+          settings: state.settings,
+          profile: state.profile,
+          timestamp: Date.now(),
+        })
+      );
+    } catch {}
+  }, [state.balance, state.transactions, state.activities, state.invoiceCount, state.settings, state.profile]);
   
   // Safe Supabase client creation with error handling - useMemo to prevent re-creation
   const supabase = React.useMemo(() => {
@@ -123,6 +171,27 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, setThemeMode]);
 
+  function loadCachedWallet() {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(WALLET_CACHE_KEY);
+      if (!raw) return null;
+      const cached = JSON.parse(raw);
+      if (cached.userId === user?.id) return cached;
+    } catch {}
+    return null;
+  }
+
+  function saveCachedWallet(wId: string, wAddr: string | null) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        WALLET_CACHE_KEY,
+        JSON.stringify({ userId: user?.id, walletId: wId, walletAddress: wAddr })
+      );
+    } catch {}
+  }
+
   // Handle data fetching and wallet creation
   const fetchData = useCallback(async (showLoading = true) => {
     if (!user?.id) {
@@ -140,13 +209,13 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    if (showLoading) setIsLoaded(false);
+    // Immediately set isLoaded to true so UI renders instantly with cached data
+    setIsLoaded(true);
     
-    // Set a timeout to prevent infinite loading
+    // Set a timeout to prevent hanging
     const timeout = setTimeout(() => {
       console.warn("⚠️ Data fetch timeout - forcing completion");
-      setIsLoaded(true);
-    }, 8000); // 8 second timeout (reduced from 10)
+    }, 10000);
     
     try {
       // 1. Check Supabase profiles table (source of truth) for wallet and username
@@ -155,6 +224,16 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       let currentWalletAddress = null;
       let currentUsername = null;
       let currentUsernameChangedAt = null;
+
+      // Check localStorage cache first for instant wallet data
+      const cachedWallet = loadCachedWallet();
+      if (cachedWallet) {
+        currentWalletId = cachedWallet.walletId;
+        currentWalletAddress = cachedWallet.walletAddress;
+        setWalletId(currentWalletId);
+        if (currentWalletAddress) setWalletAddress(currentWalletAddress);
+        console.log('📦 FinancialContext: Loaded wallet from cache:', currentWalletId);
+      }
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -198,6 +277,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Cache wallet info to skip profile query on subsequent navigations
+      if (currentWalletId) {
+        saveCachedWallet(currentWalletId, currentWalletAddress);
+      }
+
       // Now fetch all data in parallel (including Circle balance)
       console.log('📥 FinancialContext: Fetching transactions, settings, profile, and balance in parallel...');
       
@@ -219,7 +303,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         : Promise.resolve(null);
 
       const [transRes, settingsRes, profileRes, balanceData] = await Promise.all([
-        supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase
+          .from('transactions')
+          .select('id,type,status,amount,created_at,recipient,recipient_username,recipient_address,category,metadata,tx_hash')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50),
         supabase.from('user_settings').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
         balancePromise
@@ -782,7 +871,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         const txRef = result.txHash || result.transactionId || "pending";
         const refDisplay = txRef.length > 10 ? `${txRef.substring(0, 10)}...` : txRef;
         updateTransactionStatus(txId, "processing", `Transaction submitted. Ref: ${refDisplay}`);
-        notify(`Payment of $${amount.toLocaleString()} to ${formatAddress(recipient)} submitted — confirming on-chain`);
+        notify(`Payment of $${amount.toLocaleString()} to ${formatAddress(recipient)} submitted, confirming on-chain`);
         
         await fetchData(false);
       } else {

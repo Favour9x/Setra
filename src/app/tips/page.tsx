@@ -19,6 +19,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useFinancial } from "@/context/FinancialContext";
 import { formatAddress } from "@/lib/utils";
 import { QRCode } from "react-qr-code";
+import { getCachedData, setCachedData } from "@/hooks/useApiData";
+import { StatCardSkeleton, TipMessageSkeleton } from "@/components/ui/PageSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface TipsPage {
   id: string; user_id: string; title: string; creator_username: string;
@@ -48,21 +51,24 @@ function formatTimeAgo(dateString: string): string {
   return `${days}d ago`;
 }
 
+const TIPS_CACHE_KEY = "tips_data";
+
 export default function TipsDashboardPage() {
   const { notify } = useNotify();
   const { user } = useAuth();
   const { walletAddress } = useFinancial();
 
+  const cached = getCachedData<any>(TIPS_CACHE_KEY);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState<TipsPage | null>(null);
-  const [messages, setMessages] = useState<TipMessage[]>([]);
-  const [topSupporters, setTopSupporters] = useState<TopSupporter[]>([]);
+  const [page, setPage] = useState<TipsPage | null>(cached?.page || null);
+  const [messages, setMessages] = useState<TipMessage[]>(cached?.messages || []);
+  const [topSupporters, setTopSupporters] = useState<TopSupporter[]>(cached?.topSupporters || []);
   const [analytics, setAnalytics] = useState<{
     thisWeekTotal: number; lastWeekTotal: number;
     bestTipper: { address: string; username: string | null; total: number } | null;
     bestDay: string | null;
-  } | null>(null);
-  const [profile, setProfile] = useState<{ username: string; wallet_address: string } | null>(null);
+  } | null>(cached?.analytics || null);
+  const [profile, setProfile] = useState<{ username: string; wallet_address: string } | null>(cached?.profile || null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -96,10 +102,17 @@ export default function TipsDashboardPage() {
           setTopSupporters(data.topSupporters || []);
           setAnalytics(data.analytics);
           setProfile(data.profile);
+          setCachedData(TIPS_CACHE_KEY, {
+            page: data.page,
+            messages: data.messages || [],
+            topSupporters: data.topSupporters || [],
+            analytics: data.analytics,
+            profile: data.profile,
+          });
         }
       }
     } catch (e) {
-      console.error(e);
+      if (!page) console.error(e);
     } finally {
       setLoading(false);
     }
@@ -246,14 +259,39 @@ export default function TipsDashboardPage() {
     ? Math.min((page.raised_amount / page.goal_amount) * 100, 100)
     : 0;
 
-  if (loading) {
+  if (loading && !page) {
     return (
-    <div className="space-y-10 pb-12 px-4 md:px-6 relative">
+      <div className="space-y-10 pb-12 px-4 md:px-6 relative">
         <p className="text-secondary font-black text-[10px] uppercase tracking-[0.4em] mb-3">Creator Tools</p>
         <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase leading-none">Tips</h1>
-        <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-          <p className="text-sm font-bold uppercase tracking-widest">Loading...</p>
+        <div className="grid gap-4 md:grid-cols-4 mt-8">
+          {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
+        </div>
+        <div className="grid gap-8 lg:grid-cols-12 mt-8">
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="border-none shadow-premium bg-card overflow-hidden">
+              <CardContent className="p-6 space-y-4">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-3 w-full rounded-full" />
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-premium bg-card overflow-hidden">
+              <CardHeader className="p-6 pb-3">
+                <Skeleton className="h-4 w-40" />
+              </CardHeader>
+              <CardContent className="p-6 pt-2 space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <TipMessageSkeleton key={i} />)}
+              </CardContent>
+            </Card>
+          </div>
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="border-none shadow-premium bg-card overflow-hidden">
+              <CardContent className="p-6 flex flex-col items-center space-y-4">
+                <Skeleton className="h-40 w-40 rounded-2xl" />
+                <Skeleton className="h-10 w-full rounded-xl" />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     );
@@ -480,7 +518,7 @@ export default function TipsDashboardPage() {
                         <div className="flex items-center gap-2.5">
                           <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black ${
                             i === 0 ? "bg-amber-500/20 text-amber-600" :
-                            i === 1 ? "bg-slate-400/20 text-slate-500" :
+                            i === 1 ? "bg-slate-400/20 text-slate-500 dark:text-slate-300" :
                             i === 2 ? "bg-orange-600/20 text-orange-700" :
                             "bg-muted-foreground/10 text-muted-foreground/60"
                           }`}>

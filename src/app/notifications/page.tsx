@@ -87,7 +87,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-foreground">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {loading ? "Loading..." : `${filtered.length} notification${filtered.length !== 1 ? "s" : ""}`}
+            {loading ? "Loading" : `${filtered.length} notification${filtered.length !== 1 ? "s" : ""}`}
             {unreadCount > 0 && (
               <span className="ml-1.5">· <span className="font-semibold text-foreground">{unreadCount} unread</span></span>
             )}
@@ -162,8 +162,8 @@ export default function NotificationsPage() {
               </p>
               <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
                 {filter === "ALL"
-                  ? "We'll let you know when something important happens."
-                  : "Try a different filter to see more."}
+                  ? "We'll let you know when something important happens"
+                  : "Try a different filter to see more"}
               </p>
             </div>
           ) : (

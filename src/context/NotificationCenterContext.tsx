@@ -18,7 +18,8 @@ import {
   Sparkles,
   PauseCircle,
   AlertTriangle,
-  AlertOctagon
+  AlertOctagon,
+  PiggyBank,
 } from "lucide-react";
 
 export type NotificationType = 
@@ -31,7 +32,8 @@ export type NotificationType =
   | 'subscription_renewal_failed'
   | 'threshold_alert'
   | 'workflow_executed' 
-  | 'payment_request';
+  | 'payment_request'
+  | 'savings_goal_reached';
 
 export interface NotificationItem {
   id: string;
@@ -82,6 +84,8 @@ export function getNotificationIcon(type: NotificationType, className = "h-5 w-5
       return <AlertTriangle className={`${className} text-red-500`} />;
     case 'threshold_alert':
       return <AlertOctagon className={`${className} text-orange-500`} />;
+    case 'savings_goal_reached':
+      return <PiggyBank className={`${className} text-emerald-500`} />;
     default:
       return <Bell className={`${className} text-muted-foreground`} />;
   }

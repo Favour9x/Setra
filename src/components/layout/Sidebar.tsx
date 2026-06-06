@@ -30,46 +30,17 @@ import {
   PieChart,
   Bell,
   Users,
+  PiggyBank,
+  Menu,
 } from "lucide-react";
 
-const BOTTOM_TAB_ITEMS = [
-  {
-    title: "Dashboard",
-    href: "/",
-    icon: LayoutDashboard,
-    isActive: (pathname: string) => pathname === "/" || pathname === "/dashboard",
-  },
-  {
-    title: "Send",
-    href: "/send",
-    icon: Send,
-    isActive: (pathname: string) => pathname === "/send" || pathname === "/dashboard/send",
-  },
-  {
-    title: "Invoices",
-    href: "/invoices",
-    icon: Receipt,
-    isActive: (pathname: string) => pathname === "/invoices" || pathname === "/dashboard/invoices",
-  },
-  {
-    title: "Tips",
-    href: "/tips",
-    icon: HandCoins,
-    isActive: (pathname: string) => pathname === "/tips",
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-    isActive: (pathname: string) => pathname === "/settings" || pathname === "/dashboard/settings",
-  },
-];
-
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
-  mode?: "desktop" | "mobile" | "both";
+  mode?: "desktop" | "mobile";
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ className, mode = "both" }: SidebarProps) {
+export function Sidebar({ className, mode = "desktop", mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -214,6 +185,7 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
               {
                 label: "Tools",
                 items: [
+                  { title: "Savings", href: "/savings", icon: PiggyBank },
                   { title: "Tips", href: "/tips", icon: HandCoins },
                   { title: "Subscriptions", href: "/subscriptions", icon: Repeat },
                 ],
@@ -309,66 +281,34 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
     );
   };
 
-  const renderMobileTabBar = () => {
+  const renderMobileOverlay = () => {
+    if (!mobileOpen) return null;
     return (
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-md border-t border-border/60 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center justify-around px-2 py-2 safe-area-inset-bottom">
-          {BOTTOM_TAB_ITEMS.map((item) => {
-            const active = item.isActive(pathname);
-            const isSettings = item.title === "Settings";
-            
-            if (isSettings) {
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => setSettingsOpen(true)}
-                  className="flex flex-col items-center justify-center gap-1 px-3 py-1.5 min-w-[64px] min-h-[44px] rounded-xl transition-all active:scale-95 text-muted-foreground hover:text-foreground"
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="text-[10px] font-bold">
-                    {item.title}
-                  </span>
-                </button>
-              );
-            }
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={(e) => handleNavigation(e, item.href)}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-1.5 min-w-[64px] min-h-[44px] rounded-xl transition-all active:scale-95",
-                  active 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-[10px] font-bold">
-                  {item.title}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+      <>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onMobileClose}
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+        />
+        <motion.div
+          initial={{ x: "-100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "-100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className="fixed inset-y-0 left-0 z-50 w-72 md:hidden"
+        >
+          {renderDesktopSidebar()}
+        </motion.div>
+      </>
     );
   };
 
   return (
     <>
-      {/* Conditionally Render Components based on mode */}
       {mode === "desktop" && renderDesktopSidebar()}
-      {mode === "mobile" && renderMobileTabBar()}
-      {mode === "both" && (
-        <>
-          <div className="hidden md:flex flex-col h-screen">
-            {renderDesktopSidebar()}
-          </div>
-          {renderMobileTabBar()}
-        </>
-      )}
+      {mode === "mobile" && renderMobileOverlay()}
 
       {/* Upgrade Pro Modal */}
       <AnimatePresence>
@@ -529,8 +469,8 @@ export function Sidebar({ className, mode = "both" }: SidebarProps) {
                       </p>
                       <p className="text-[10px] font-bold text-muted-foreground max-w-xs">
                         {upgradeStep === "payment" 
-                          ? "Executing the Circle USDC transaction to Arc Testnet ledger..." 
-                          : "Finalizing license records in your Supabase profile..."}
+                          ? "Executing the Circle USDC transaction to Arc Testnet ledger" 
+                          : "Finalizing license records in your Supabase profile"}
                       </p>
                     </div>
                   </div>

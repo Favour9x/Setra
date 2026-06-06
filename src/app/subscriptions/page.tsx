@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ import { useNotify } from "@/components/ui/notification";
 import { motion, AnimatePresence } from "motion/react";
 import { formatAddress } from "@/lib/utils";
 import { RecipientInput } from "@/components/ui/RecipientInput";
+import { getCachedData, setCachedData } from "@/hooks/useApiData";
+import { StatCardSkeleton, SubscriptionRowSkeleton } from "@/components/ui/PageSkeletons";
 
 interface Subscription {
   id: string;
@@ -63,9 +65,12 @@ function nextCycleDisplay(sub: Subscription): string {
   return formatDateTime(d.toISOString());
 }
 
+const SUBS_CACHE_KEY = "subscriptions_data";
+
 export default function Page() {
   const { notify } = useNotify();
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const cachedSubs = getCachedData<Subscription[]>(SUBS_CACHE_KEY);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(cachedSubs || []);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -80,22 +85,23 @@ export default function Page() {
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("monthly");
   const [startDate, setStartDate] = useState("");
 
-  const fetchUserSubscriptions = async () => {
+  const fetchUserSubscriptions = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/subscriptions", { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setSubscriptions(data.subscriptions || []);
+        setCachedData(SUBS_CACHE_KEY, data.subscriptions || []);
       } else {
         notify(data.error || "Failed to load subscriptions");
       }
     } catch (err: any) {
-      notify("Error loading subscriptions");
+      if (subscriptions.length === 0) notify("Error loading subscriptions");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUserSubscriptions();
@@ -208,12 +214,12 @@ export default function Page() {
 
   const activeSubscriptions = subscriptions.filter(s => s.status === "active");
 
-  const [volumes, setVolumes] = useState({ daily: 0, weekly: 0, monthly: 0, yearly: 0 });
+  const [volumes, setVolumes] = useState(() => getCachedData<{ daily: number; weekly: number; monthly: number; yearly: number }>("volumes_data") || { daily: 0, weekly: 0, monthly: 0, yearly: 0 });
 
   useEffect(() => {
     fetch("/api/subscriptions/volume", { credentials: "include" })
       .then(r => r.json())
-      .then(d => { if (d.success) setVolumes(d.volumes); })
+      .then(d => { if (d.success) { setVolumes(d.volumes); setCachedData("volumes_data", d.volumes); } })
       .catch(() => {});
   }, []);
 
@@ -291,11 +297,8 @@ export default function Page() {
         </CardHeader>
         <CardContent className="p-8 pt-0">
           <div className="mt-6 space-y-4">
-            {loading ? (
-              <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-                <p className="text-sm font-bold uppercase tracking-widest">Syncing schedules...</p>
-              </div>
+            {loading && subscriptions.length === 0 ? (
+              Array.from({ length: 3 }).map((_, i) => <SubscriptionRowSkeleton key={i} />)
             ) : subscriptions.length === 0 ? (
               <div className="py-16 text-center text-muted-foreground flex flex-col items-center justify-center">
                 <Repeat className="h-16 w-16 mb-4 opacity-10" />

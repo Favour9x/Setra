@@ -460,7 +460,7 @@ export default function Page() {
                   <EmptyState 
                     icon={History}
                     title={txFilter === "INCOME" ? "No Received Payments" : txFilter === "EXPENSE" ? "No Sent Payments" : "No Transactions"}
-                    description={txFilter === "INCOME" ? "Payments sent to you will appear here." : txFilter === "EXPENSE" ? "Your sent payments will appear here." : "Your financial footprint begins with your first payment."}
+                    description={txFilter === "INCOME" ? "Payments sent to you will appear here" : txFilter === "EXPENSE" ? "Your sent payments will appear here" : "Your financial footprint begins with your first payment"}
                   />
                 );
               })()}
@@ -501,7 +501,7 @@ export default function Page() {
                   </Button>
                 </div>
                 <div className="flex flex-col items-center gap-4 py-4">
-                  <div className="p-4 bg-white rounded-xl">
+                  <div className="p-4 bg-card rounded-xl">
                     <QRCode 
                       id="dashboard-qr-code"
                       value={walletAddress} 

@@ -40,12 +40,12 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Login failed.");
+        setError(data.error || "Login failed");
         setLoading(false);
         return;
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError("Network error. Please try again");
       setLoading(false);
     }
   };

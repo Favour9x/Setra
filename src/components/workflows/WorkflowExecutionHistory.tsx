@@ -48,7 +48,7 @@ export function WorkflowExecutionHistory({ executions }: WorkflowExecutionHistor
                     <Clock className="h-5 w-5 text-blue-500 mt-0.5 animate-pulse" />
                   )}
                   {execution.status === "pending" && (
-                    <Clock className="h-5 w-5 text-gray-500 mt-0.5" />
+                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                   )}
 
                   <div className="space-y-1">

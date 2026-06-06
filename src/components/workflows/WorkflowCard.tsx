@@ -91,7 +91,7 @@ export function WorkflowCard({ workflow, onUpdate, onDeleted }: WorkflowCardProp
       case "active":
         return "bg-emerald-500/10 text-emerald-500 border-emerald-500/25";
       case "completed":
-        return "bg-gray-500/10 text-gray-500 border-gray-500/25";
+        return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/25";
       case "paused":
         return "bg-yellow-500/10 text-yellow-500 border-yellow-500/25";
       case "failed":
