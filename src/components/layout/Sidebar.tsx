@@ -32,6 +32,9 @@ import {
   Users,
   PiggyBank,
   Menu,
+  Calendar,
+  GitBranch,
+  Gauge,
 } from "lucide-react";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -329,7 +332,7 @@ export function Sidebar({ className, mode = "desktop", mobileOpen, onMobileClose
                 initial={{ scale: 0.95, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                className="w-full max-w-md bg-card border border-border/40 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden space-y-6"
+                className="w-full max-w-lg bg-card border border-border/40 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden space-y-8"
               >
                 {/* Background decorative glow */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
@@ -346,115 +349,186 @@ export function Sidebar({ className, mode = "desktop", mobileOpen, onMobileClose
 
                 {/* Content based on Upgrade Step */}
                 {upgradeStep === "idle" && (
-                  <div className="space-y-6">
-                    <div className="flex flex-col items-center text-center space-y-3">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center animate-pulse">
-                        <Zap className="h-6 w-6" />
+                  <div className="space-y-8">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center animate-pulse">
+                        <Zap className="h-7 w-7" />
                       </div>
-                      <h3 className="text-xl font-black uppercase tracking-tight text-foreground">
+                      <h3 className="text-2xl font-black uppercase tracking-tight text-foreground">
                         Unlock <span className="text-primary italic">Setra Pro</span>
                       </h3>
-                      <p className="text-xs font-semibold text-muted-foreground max-w-xs">
-                        Unlock autonomous Cash Operations and deploy AI-driven financial workflows.
+                      <p className="text-sm font-semibold text-muted-foreground max-w-sm">
+                        Unlock the full power of Automation and take control of your finances on autopilot
                       </p>
                     </div>
 
                     <Separator className="opacity-30" />
 
                     {/* Features list */}
-                    <div className="space-y-4 text-left">
-                      <div className="flex items-start gap-3">
-                        <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Sparkles className="h-3 w-3" />
+                    <div className="space-y-5 text-left">
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Calendar className="h-3.5 w-3.5" />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-foreground uppercase tracking-wide">Smart Payment Commands</p>
-                          <p className="text-[10px] font-bold text-muted-foreground mt-0.5 leading-normal">
-                            Create complex payment workflows using simple plain English instructions.
+                          <p className="text-sm font-black text-foreground">Scheduled Payments</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Send payments at a specific date and time automatically
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-3">
-                        <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Plus className="h-3 w-3" />
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Repeat className="h-3.5 w-3.5" />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-foreground uppercase tracking-wide">Automated Recurring Payments</p>
-                          <p className="text-[10px] font-bold text-muted-foreground mt-0.5 leading-normal">
-                            Schedule and automate payments to run on their own.
+                          <p className="text-sm font-black text-foreground">Recurring Payments</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Repeat payments on a set schedule without lifting a finger
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-3">
-                        <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Receipt className="h-3 w-3" />
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Users className="h-3.5 w-3.5" />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-foreground uppercase tracking-wide">Scheduled Payroll</p>
-                          <p className="text-[10px] font-bold text-muted-foreground mt-0.5 leading-normal">
-                            Automatically pay your team every month without lifting a finger.
+                          <p className="text-sm font-black text-foreground">Split Revenue</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Automatically split payments between multiple people
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Gauge className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground">Threshold Transfer</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Trigger transfers when your balance hits a set amount
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <PiggyBank className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground">Savings Sweep</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Auto move a percentage of incoming payments to savings
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Receipt className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground">Auto Invoice Pay</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Pay invoices automatically when they are due
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <GitBranch className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground">Conditional Transfer</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Send payments only when specific conditions are met
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Zap className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground">Payroll Automation</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Pay your entire team their salaries automatically
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Sparkles className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground">Subscription Payment</p>
+                          <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
+                            Handle recurring subscription charges automatically
                           </p>
                         </div>
                       </div>
                     </div>
 
                     {/* CTA section */}
-                    <div className="space-y-3 pt-2 text-center">
-                      <div className="space-y-2">
+                    <div className="space-y-5 pt-4 text-center">
+                      <div className="space-y-3">
                         <p className="text-xs font-bold text-muted-foreground mb-3">Select Your Plan:</p>
                         
                         <button
                           onClick={() => setSelectedPlan("monthly")}
-                          className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all ${
+                          className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${
                             selectedPlan === "monthly" 
                               ? "border-primary bg-primary/5" 
                               : "border-border/20 bg-muted/20 hover:border-primary/30"
                           }`}
                         >
-                          <span className="text-xs font-bold text-foreground">Monthly</span>
-                          <span className="text-sm font-black text-primary">$15 USDC/mo</span>
+                          <span className="text-sm font-bold text-foreground">Monthly</span>
+                          <span className="text-base font-black text-primary">$15 USDC/mo</span>
                         </button>
 
                         <button
                           onClick={() => setSelectedPlan("6months")}
-                          className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all ${
+                          className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${
                             selectedPlan === "6months" 
                               ? "border-primary bg-primary/5" 
                               : "border-border/20 bg-muted/20 hover:border-primary/30"
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-foreground">6 Months</span>
+                            <span className="text-sm font-bold text-foreground">6 Months</span>
                             <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600">Save $5</span>
                           </div>
-                          <span className="text-sm font-black text-primary">$85 USDC</span>
+                          <span className="text-base font-black text-primary">$85 USDC</span>
                         </button>
 
                         <button
                           onClick={() => setSelectedPlan("yearly")}
-                          className={`w-full flex justify-between items-center p-3 rounded-xl border-2 transition-all ${
+                          className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${
                             selectedPlan === "yearly" 
                               ? "border-primary bg-primary/5" 
                               : "border-border/20 bg-muted/20 hover:border-primary/30"
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-foreground">Yearly</span>
+                            <span className="text-sm font-bold text-foreground">Yearly</span>
                             <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600">Save $50</span>
                           </div>
-                          <span className="text-sm font-black text-primary">$130 USDC</span>
+                          <span className="text-base font-black text-primary">$130 USDC</span>
                         </button>
                       </div>
 
                       <Button
                         onClick={executeUpgrade}
-                        className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs shadow-lg shadow-primary/20 hover:scale-[1.01] transition-all"
+                        className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs shadow-lg shadow-primary/20 hover:scale-[1.01] transition-all mt-4"
                       >
                         Upgrade Now
                       </Button>
-                      <p className="text-[9px] text-muted-foreground/60">One-time billing. Access is immediately active.</p>
                     </div>
                   </div>
                 )}
