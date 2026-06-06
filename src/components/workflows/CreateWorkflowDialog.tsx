@@ -46,24 +46,47 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
       }
 
       // Determine final type/config:
-      // - If parser returned custom_intent or low confidence, use dropdown type
-      // - If parser has incomplete config (missing amount or recipient for payment types), force custom_intent
+      // Use the dropdown-selected type as the authority.
+      // Only use the parsed type if the parser returned a complete-enough config
+      // (amount+recipient for payment types, splits for split_revenue, etc.)
       let finalType = workflowType;
       let finalConfig = data.config || {};
 
-      if (data.workflow_type && data.workflow_type !== "custom_intent" && (data.confidence || 0) >= 0.5) {
-        const hasAmount = (finalConfig.amount || 0) > 0;
-        const hasRecipient = !!finalConfig.recipient_address || !!finalConfig.recipient_name;
-        const hasSplits = Array.isArray(finalConfig.splits) && finalConfig.splits.length > 0;
-        const hasRecipients = Array.isArray(finalConfig.recipients) && finalConfig.recipients.length > 0;
+      if (
+        data.workflow_type &&
+        data.workflow_type !== "custom_intent" &&
+        (data.confidence || 0) >= 0.5
+      ) {
+        const cfg = finalConfig;
+        const isPayment = ["scheduled_payment", "recurring_payment", "subscription_payment", "conditional_transfer"].includes(data.workflow_type);
+        const isSplit = data.workflow_type === "split_revenue";
+        const isSweep = data.workflow_type === "savings_sweep";
+        const isThreshold = data.workflow_type === "threshold_transfer";
+        const isPayroll = data.workflow_type === "payroll_automation";
+        const isInvoice = data.workflow_type === "auto_invoice_pay";
 
-        if (hasAmount || hasRecipient || hasSplits || hasRecipients || finalConfig.percentage) {
+        let sufficient = false;
+        if (isPayment) {
+          sufficient = (cfg.amount || 0) > 0 && (cfg.recipient_address || cfg.recipient_name);
+        } else if (isSplit) {
+          sufficient = Array.isArray(cfg.splits) && cfg.splits.length > 0;
+        } else if (isSweep) {
+          sufficient = (cfg.percentage || 0) > 0 && (cfg.recipient_address || cfg.recipient_name);
+        } else if (isThreshold) {
+          sufficient = (cfg.threshold_value || 0) > 0 && (cfg.amount || 0) > 0 && cfg.recipient_address && cfg.token;
+        } else if (isPayroll) {
+          sufficient = Array.isArray(cfg.recipients) && cfg.recipients.length > 0;
+        } else if (isInvoice) {
+          sufficient = (cfg.max_amount_per_invoice || 0) > 0;
+        }
+
+        if (sufficient) {
           finalType = data.workflow_type;
         } else {
           finalType = "custom_intent";
           finalConfig = { description: intent, plain_english: intent };
         }
-      } else {
+      } else if (!data.workflow_type || data.workflow_type === "custom_intent") {
         finalType = "custom_intent";
         finalConfig = { description: intent, plain_english: intent };
       }
