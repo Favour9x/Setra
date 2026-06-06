@@ -59,7 +59,8 @@ export function CreateWorkflowDialog({ onWorkflowCreated }: CreateWorkflowDialog
       const createData = await createResponse.json();
 
       if (!createResponse.ok) {
-        throw new Error(createData.error || "Failed to save automation");
+        const details = createData.validation_errors?.length ? ": " + createData.validation_errors.join(", ") : "";
+        throw new Error((createData.error || "Failed to save automation") + details);
       }
 
       toast({
