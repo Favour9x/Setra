@@ -29,8 +29,15 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   // Auth guard: once auth finishes loading with no user, redirect to login
   const redirectGuard = useRef(false);
+  const lastRedirectState = useRef<string>("");
+  
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
+    
+    const currentState = `${!!user}-${isLoaded}-${!!username}-${isSetupUsernamePage}`;
+    if (lastRedirectState.current === currentState) return;
+    lastRedirectState.current = currentState;
+    
     if (!user) {
       router.push("/login");
       return;

@@ -74,12 +74,14 @@ export default function Page() {
     setMounted(true);
   }, []);
 
-  // Auto-fetch fresh balance on every page visit
+  // Auto-fetch fresh balance on every page visit - run once on mount
+  const balanceHasFetched = useRef(false);
   useEffect(() => {
-    if (walletAddress && isLoaded) {
+    if (walletAddress && isLoaded && !balanceHasFetched.current) {
+      balanceHasFetched.current = true;
       refreshBalance();
     }
-  }, [walletAddress, isLoaded]);
+  }, [walletAddress, isLoaded, refreshBalance]);
 
   // Close notifications dropdown on click outside
   useEffect(() => {

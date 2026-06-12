@@ -522,6 +522,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, user?.email, supabase, notify]);
 
   const prevUserId = useRef<string | null | undefined>(undefined);
+  const fetchInProgress = useRef(false);
 
   useEffect(() => {
     const uid = user?.id;
@@ -535,6 +536,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         setUsername(null);
         setUsernameChangedAt(null);
         initialFetchDone.current = null;
+        fetchInProgress.current = false;
         setIsLoaded(true);
       }
       return;
@@ -542,12 +544,15 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
     prevUserId.current = uid;
 
-    if (initialFetchDone.current !== uid) {
+    if (initialFetchDone.current !== uid && !fetchInProgress.current) {
+      fetchInProgress.current = true;
       console.log("🚀 FinancialContext - Triggering initial data fetch for user:", uid);
       fetchData().then(() => {
         initialFetchDone.current = uid;
+        fetchInProgress.current = false;
       }).catch(() => {
         console.warn("⚠️ Initial fetch failed, will retry on re-render");
+        fetchInProgress.current = false;
       });
     }
   }, [user?.id, fetchData]);
@@ -613,11 +618,16 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   // Auto-fetch balance on mount, user change, and whenever wallet becomes available
   // refreshBalance is self-healing - handles wallet creation/lookup on the server
   const prevWalletIdForBalance = useRef<string | null | undefined>(undefined);
+  const balanceRefreshInProgress = useRef(false);
+  
   useEffect(() => {
-    if (user && walletId !== prevWalletIdForBalance.current) {
+    if (user && walletId !== prevWalletIdForBalance.current && !balanceRefreshInProgress.current) {
       prevWalletIdForBalance.current = walletId;
+      balanceRefreshInProgress.current = true;
       console.log('💰 Auto-fetching balance (walletId:', walletId || 'null (server will resolve)', ')');
-      refreshBalance();
+      refreshBalance().finally(() => {
+        balanceRefreshInProgress.current = false;
+      });
     }
   }, [user, walletId, refreshBalance]);
 
@@ -739,11 +749,19 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
   // Periodic polling as fallback for Realtime (every 30s)
   // Self-healing: calls balance endpoint which handles wallet creation if needed
+  const pollingInProgress = useRef(false);
+  
   useEffect(() => {
-    if (!user) return;
+    if (!user || !walletId) return;
 
     console.log('⏰ Setting up periodic balance poll (30s interval)');
     const interval = setInterval(async () => {
+      if (pollingInProgress.current) {
+        console.log('⏰ Periodic poll: skipping - previous poll still in progress');
+        return;
+      }
+      
+      pollingInProgress.current = true;
       console.log('⏰ Periodic poll: refreshing balance');
       try {
         const balanceResponse = await fetch('/api/wallet/balance', {
@@ -765,6 +783,8 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('⏰ Periodic poll error:', error);
+      } finally {
+        pollingInProgress.current = false;
       }
     }, 30000);
 
@@ -772,7 +792,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       console.log('⏰ Cleaning up periodic poll');
       clearInterval(interval);
     };
-  }, [user]);
+  }, [user, walletId]);
 
   const updateTransactionStatus = useCallback((id: string, status: TransactionStatus, message?: string) => {
     setState(prev => ({
