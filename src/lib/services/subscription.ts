@@ -200,6 +200,13 @@ export async function processDueSubscriptions(
         type: "USDC"
       });
 
+      console.log(`🔍 Subscription ${subscription.id} payment result:`, {
+        success: paymentResult.success,
+        txHash: paymentResult.txHash,
+        transactionId: paymentResult.transactionId,
+        error: paymentResult.error
+      });
+
       if (!paymentResult.success) {
         const newRetryCount = (subscription.retry_count || 0) + 1;
         if (newRetryCount >= 3) {
@@ -274,6 +281,7 @@ export async function processDueSubscriptions(
             created_at: new Date().toISOString()
           });
 
+          console.log(`✅ Recording received transaction for recipient: ${subscription.recipient_address}`);
           await insertRecipientReceivedTransaction(client, {
             destinationAddress: subscription.recipient_address,
             amount: subscription.amount,
