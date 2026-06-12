@@ -25,6 +25,13 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Force load after 5 seconds if still stuck
+    const forceLoadTimer = setTimeout(() => {
+      console.warn("⚠️ FORCE LOADING: Taking too long, forcing content display");
+    }, 5000);
+    
+    return () => clearTimeout(forceLoadTimer);
   }, []);
 
   // Auth guard: once auth finishes loading with no user, redirect to login
@@ -48,24 +55,30 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   if (!mounted || authLoading) {
+    console.log('🔄 LayoutWrapper: Showing loading state', { mounted, authLoading });
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-primary animate-pulse" />
+          <p className="text-xs text-muted-foreground mt-2">Loading...</p>
         </div>
       </div>
     );
   }
 
   if (!user || (isLoaded && !username && !isSetupUsernamePage)) {
+    console.log('🔄 LayoutWrapper: Showing auth loading', { user: !!user, isLoaded, username, isSetupUsernamePage });
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-primary animate-pulse" />
+          <p className="text-xs text-muted-foreground mt-2">Authenticating...</p>
         </div>
       </div>
     );
   }
+
+  console.log('✅ LayoutWrapper: Rendering main layout', { user: !!user, isLoaded, username });
 
   return (
     <div className="font-sans antialiased">
