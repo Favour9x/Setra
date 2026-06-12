@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -8,32 +8,35 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // Track cookies set during getUser() refresh so they survive redirects
-  const pendingCookies: Array<{ name: string; value: string; options: CookieOptions }> = [];
+  // Accumulate ALL cookie mutations so they can be applied atomically
+  // to the final response — whether it's a redirect or a passthrough.
+  const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+
+  function applyPendingCookies(res: NextResponse) {
+    for (const c of pendingCookies) {
+      res.cookies.set(c.name, c.value, c.options)
+    }
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
+        getAll() {
+          return request.cookies.getAll()
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          pendingCookies.push({ name, value, options })
+        setAll(cookiesToSet) {
+          for (const { name, value, options } of cookiesToSet) {
+            request.cookies.set(name, value)
+            pendingCookies.push({ name, value, options })
+          }
+          // Create ONE response that carries ALL cookies from this batch,
+          // instead of creating a new response per cookie (which drops previous ones).
           supabaseResponse = NextResponse.next({
             request: { headers: request.headers },
           })
-          supabaseResponse.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options })
-          pendingCookies.push({ name, value: '', options })
-          supabaseResponse = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          supabaseResponse.cookies.set({ name, value: '', ...options })
+          applyPendingCookies(supabaseResponse)
         },
       },
     }
@@ -63,12 +66,9 @@ export async function middleware(request: NextRequest) {
   const isSetupUsernamePage = request.nextUrl.pathname.startsWith('/setup-username')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
-  // Helper: create a redirect that carries forward auth cookies set during getUser()
   function redirectTo(path: string): NextResponse {
     const res = NextResponse.redirect(new URL(path, request.url))
-    for (const c of pendingCookies) {
-      res.cookies.set(c.name, c.value, c.options)
-    }
+    applyPendingCookies(res)
     return res
   }
 
@@ -88,18 +88,23 @@ export async function middleware(request: NextRequest) {
     return redirectTo('/')
   }
 
+  // Ensure the passthrough response carries the full set of auth cookies
+  applyPendingCookies(supabaseResponse)
   return supabaseResponse
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * Match all request paths except:
      * - _next/static (static files)
+     * - _next/data (RSC data requests — middleware redirects here cause
+     *   Next.js client router to trigger full page navigations, which
+     *   can create redirect loops; client-side LayoutWrapper handles
+     *   auth enforcement for client navigations)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * - favicon.ico, images
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/data|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
