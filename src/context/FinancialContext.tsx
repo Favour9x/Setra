@@ -303,9 +303,9 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
               .then(res => res.ok ? res.json() : null)
               .catch(() => null),
             new Promise((resolve) => setTimeout(() => {
-              console.warn('⏱️ Balance fetch timeout after 5 seconds');
+              console.warn('⏱️ Balance fetch timeout after 30 seconds');
               resolve(null);
-            }, 5000)) // 5 second timeout for balance fetch
+            }, 30000))
           ])
         : Promise.resolve(null);
 
@@ -506,7 +506,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
         return {
           ...prev,
-          balance: finalBalance,
+          balance: finalBalance !== null ? finalBalance : prev.balance,
           transactions: mappedTransactions,
           activities: mappedTransactions.map(t => ({
             id: `act-${t.id}`,
