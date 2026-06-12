@@ -74,12 +74,16 @@ export default function Page() {
     setMounted(true);
   }, []);
 
-  // Auto-fetch fresh balance on every page visit
+  // Auto-fetch fresh balance on every page visit - but only if balance is stale
   useEffect(() => {
-    if (walletAddress && isLoaded) {
-      refreshBalance();
+    if (walletAddress && isLoaded && mounted) {
+      // Add a small delay to avoid race conditions with initial data fetch
+      const timer = setTimeout(() => {
+        refreshBalance();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [walletAddress, isLoaded, refreshBalance]);
+  }, [walletAddress, isLoaded, mounted, refreshBalance]);
 
   // Close notifications dropdown on click outside
   useEffect(() => {

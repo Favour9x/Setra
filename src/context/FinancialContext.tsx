@@ -523,12 +523,17 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) {
-      setState(INITIAL_STATE);
-      setWalletId(null);
-      setWalletAddress(null);
-      setUsername(null);
-      setUsernameChangedAt(null);
-      initialFetchDone.current = null;
+      // Only reset if we actually had a user before (logout scenario)
+      // Don't reset on initial mount when user is null
+      if (initialFetchDone.current) {
+        console.log("🔄 User logged out - resetting state");
+        setState(INITIAL_STATE);
+        setWalletId(null);
+        setWalletAddress(null);
+        setUsername(null);
+        setUsernameChangedAt(null);
+        initialFetchDone.current = null;
+      }
       setIsLoaded(true);
       return;
     }
@@ -548,7 +553,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const refreshBalance = useCallback(async () => {
     console.log('🔄 Refreshing balance with retry mechanism...');
     
-    const fetchBalanceWithRetry = async (attempt: number = 1, maxAttempts: number = 3): Promise<number> => {
+    const fetchBalanceWithRetry = async (attempt: number = 1, maxAttempts: number = 3): Promise<number | null> => {
       try {
         console.log(`💰 Balance fetch attempt ${attempt}/${maxAttempts}...`);
         
@@ -575,8 +580,8 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           return fetchBalanceWithRetry(attempt + 1, maxAttempts);
         }
         
-        console.warn('⚠️ No USDC balance found after all attempts');
-        return 0;
+        console.warn('⚠️ No USDC balance found after all attempts - keeping current balance');
+        return null; // Return null to indicate no update, not 0
       } catch (error) {
         console.error(`❌ Balance fetch attempt ${attempt} failed:`, error);
         
@@ -588,17 +593,21 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           return fetchBalanceWithRetry(attempt + 1, maxAttempts);
         }
         
-        return 0;
+        return null; // Return null to keep current balance on error
       }
     };
 
     const newBalance = await fetchBalanceWithRetry();
     
-    // Update state with exact Circle API balance - never add or subtract locally
-    setState(prev => {
-      console.log(`🎯 Setting balance to Circle API value: $${newBalance} (was $${prev.balance})`);
-      return { ...prev, balance: newBalance };
-    });
+    // Only update state if we got a valid balance back
+    if (newBalance !== null) {
+      setState(prev => {
+        console.log(`🎯 Setting balance to Circle API value: $${newBalance} (was $${prev.balance})`);
+        return { ...prev, balance: newBalance };
+      });
+    } else {
+      console.log('ℹ️ Balance fetch returned null - keeping current balance');
+    }
   }, [walletId]);
 
   // Auto-fetch balance on mount, user change, and whenever wallet becomes available
