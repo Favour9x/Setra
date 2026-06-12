@@ -60,8 +60,6 @@ export async function createWalletsForUser(userId: string): Promise<WalletInfo[]
         walletSetId,
         blockchains: [chain.id as any],
         count: 1,
-        accountType: "SCA",
-        metadata: [{ name: `wallet-${userId}-${chain.id}`, refId: `${userId}:${chain.id}` }],
       });
 
       const wallet = response.data?.wallets?.[0];
@@ -71,7 +69,7 @@ export async function createWalletsForUser(userId: string): Promise<WalletInfo[]
         requestFaucetFunds(wallet.address, wallet.blockchain).catch(e => console.warn(`Faucet failed for new wallet:`, e.message));
       }
     } catch (error: any) {
-      console.warn(`Failed to create wallet on ${chain.id}:`, error.message);
+      console.warn(`Failed to create wallet on ${chain.id}:`, error.message, error.response?.data || error.cause || '');
     }
   }
 

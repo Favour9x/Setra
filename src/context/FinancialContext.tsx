@@ -302,7 +302,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       const [transRes, settingsRes, profileRes, balanceData] = await Promise.all([
         supabase
           .from('transactions')
-          .select('id,type,status,amount,created_at,recipient,recipient_username,recipient_address,category,metadata,tx_hash')
+          .select('id,type,status,amount,created_at,recipient,recipient_username,category,metadata,tx_hash')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(50),

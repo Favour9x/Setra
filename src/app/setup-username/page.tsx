@@ -115,8 +115,8 @@ export default function SetupUsernamePage() {
         setSubmitting(false);
       } else {
         notify(`Username @${cleanUsername} successfully configured!`);
+        await refreshData();
         router.push("/");
-        router.refresh();
       }
     } catch (err: any) {
       console.error("Username save exception:", err);

@@ -11,3 +11,5 @@ dev-controlled-projects/output/
 .vercel
 *.tsbuildinfo
 eslint.config.mjs
+
+.vercel

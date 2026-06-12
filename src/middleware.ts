@@ -2,11 +2,14 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  let supabaseResponse = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
+
+  // Track cookies set during getUser() refresh so they survive redirects
+  const pendingCookies: Array<{ name: string; value: string; options: CookieOptions }> = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,38 +20,20 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
+          request.cookies.set({ name, value, ...options })
+          pendingCookies.push({ name, value, options })
+          supabaseResponse = NextResponse.next({
+            request: { headers: request.headers },
           })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          supabaseResponse.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
+          request.cookies.set({ name, value: '', ...options })
+          pendingCookies.push({ name, value: '', options })
+          supabaseResponse = NextResponse.next({
+            request: { headers: request.headers },
           })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+          supabaseResponse.cookies.set({ name, value: '', ...options })
         },
       },
     }
@@ -59,48 +44,51 @@ export async function middleware(request: NextRequest) {
   try {
     const { data } = await supabase.auth.getUser();
     user = data?.user ?? null;
-    
-    // Check if user has username set
+
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('username')
         .eq('id', user.id)
         .maybeSingle();
-      
+
       username = profile?.username ?? null;
     }
   } catch (err) {
     console.error("Middleware auth retrieval failed:", err);
   }
 
-  // Protected routes logic
   const isPublicPage = request.nextUrl.pathname.startsWith('/pay/') || request.nextUrl.pathname.startsWith('/diag')
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')
   const isSetupUsernamePage = request.nextUrl.pathname.startsWith('/setup-username')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
-  
+
+  // Helper: create a redirect that carries forward auth cookies set during getUser()
+  function redirectTo(path: string): NextResponse {
+    const res = NextResponse.redirect(new URL(path, request.url))
+    for (const c of pendingCookies) {
+      res.cookies.set(c.name, c.value, c.options)
+    }
+    return res
+  }
+
   if (!user && !isAuthPage && !isPublicPage && !isApiRoute) {
-    // Redirect non-logged in users to login page
-    return NextResponse.redirect(new URL('/login', request.url))
+    return redirectTo('/login')
   }
 
   if (user && isAuthPage) {
-    // Redirect logged in users away from auth pages
-    return NextResponse.redirect(new URL('/', request.url))
+    return redirectTo('/')
   }
 
-  // Username check - redirect to setup if username is not set
   if (user && !username && !isSetupUsernamePage && !isAuthPage && !isPublicPage && !isApiRoute) {
-    return NextResponse.redirect(new URL('/setup-username', request.url))
+    return redirectTo('/setup-username')
   }
 
-  // If user has username and is on setup page, redirect to dashboard
   if (user && username && isSetupUsernamePage) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return redirectTo('/')
   }
 
-  return response
+  return supabaseResponse
 }
 
 export const config = {
