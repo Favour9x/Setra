@@ -169,7 +169,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     if (themeFromStorage) {
       setThemeMode(themeFromStorage as any);
     }
-  }, [user, setThemeMode]);
+  }, [user?.id, setThemeMode]);
 
   function loadCachedWallet() {
     if (typeof window === "undefined") return null;
@@ -546,7 +546,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         console.warn("⚠️ Initial fetch failed, will retry on re-render");
       });
     }
-  }, [user, fetchData]);
+  }, [user?.id, fetchData]);
 
   // Dedicated balance refresh function with retry mechanism
   // Fully self-healing: does NOT require walletId - the server looks it up or creates it
@@ -617,7 +617,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       console.log('💰 Auto-fetching balance (walletId:', walletId, ')');
       refreshBalance();
     }
-  }, [user, walletId, refreshBalance]);
+  }, [user?.id, walletId, refreshBalance]);
 
   // Set up realtime listener for transactions and auto-refresh balance
   useEffect(() => {
@@ -738,7 +738,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   // Periodic polling as fallback for Realtime (every 30s)
   // Self-healing: calls balance endpoint which handles wallet creation if needed
   useEffect(() => {
-    if (!user || !walletId) return;
+    if (!user?.id || !walletId) return;
 
     console.log('⏰ Setting up periodic balance poll (30s interval)');
     const interval = setInterval(async () => {
@@ -770,7 +770,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       console.log('⏰ Cleaning up periodic poll');
       clearInterval(interval);
     };
-  }, [user, walletId]);
+  }, [user?.id, walletId]);
 
   const updateTransactionStatus = useCallback((id: string, status: TransactionStatus, message?: string) => {
     setState(prev => ({
