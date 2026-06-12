@@ -195,16 +195,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   // Handle data fetching and wallet creation
   const fetchData = useCallback(async (showLoading = true) => {
     if (!user?.id) {
-      console.log('📊 FinancialContext: No user, skipping data fetch');
       setIsLoaded(true);
       return;
     }
     
-    console.log('📊 FinancialContext: Starting data fetch for user:', user.id);
-    
     // If Supabase client is not available, skip data fetching
     if (!supabase) {
-      console.warn('⚠️ FinancialContext: Supabase client not available');
       setIsLoaded(true);
       return;
     }
@@ -214,14 +210,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     let completed = false;
     const timeout = setTimeout(() => {
       if (!completed) {
-        console.warn("⚠️ Data fetch timeout - forcing isLoaded to true");
         setIsLoaded(true);
       }
     }, 10000);
     
     try {
       // 1. Check Supabase profiles table (source of truth) for wallet and username
-      console.log('🔍 FinancialContext: Querying Supabase profiles table for wallet and username...');
       let currentWalletId = null;
       let currentWalletAddress = null;
       let currentUsername = null;
@@ -234,7 +228,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         currentWalletAddress = cachedWallet.walletAddress;
         setWalletId(currentWalletId);
         if (currentWalletAddress) setWalletAddress(currentWalletAddress);
-        console.log('📦 FinancialContext: Loaded wallet from cache:', currentWalletId);
       }
 
       const { data: profileData, error: profileError } = await supabase
@@ -243,10 +236,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.warn('⚠️ FinancialContext: Supabase profile fetch error:', profileError.message);
-      } else if (profileData) {
-        console.log('📊 FinancialContext: Supabase profile result:', profileData);
+      if (!profileError && profileData) {
         currentWalletId = profileData.wallet_id;
         currentWalletAddress = profileData.wallet_address;
         currentUsername = profileData.username;
@@ -255,7 +245,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Only call /api/wallet/create if wallet_id is NULL
       if (!currentWalletId) {
-        console.log('🆕 FinancialContext: No wallet found in Supabase profiles. Calling /api/wallet/create...');
         const walletController = new AbortController();
         const walletTimer = setTimeout(() => walletController.abort(), 30000);
         try {
@@ -272,13 +261,9 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
             const primaryWallet = createData.wallets?.[0] || createData.wallet;
             currentWalletId = primaryWallet?.walletId || primaryWallet?.id;
             currentWalletAddress = primaryWallet?.walletAddress || primaryWallet?.address;
-            console.log('✅ FinancialContext: Wallet created/retrieved via API:', { walletId: currentWalletId, address: currentWalletAddress, wallets: createData.wallets?.length });
-          } else {
-            const errorData = await createResponse.json();
-            console.error('❌ FinancialContext: Failed to create/verify wallet via API:', errorData);
           }
         } catch (walletError) {
-          console.error('❌ FinancialContext: Wallet API request failed:', walletError);
+          // Silent fail - wallet will be created on next attempt
         } finally {
           clearTimeout(walletTimer);
         }
@@ -290,8 +275,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Now fetch all data in parallel (including Circle balance)
-      console.log('📥 FinancialContext: Fetching transactions, settings, profile, and balance in parallel...');
-      
       const balancePromise = currentWalletId
         ? Promise.race([
             fetch('/api/wallet/balance', {
@@ -302,10 +285,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
             })
               .then(res => res.ok ? res.json() : null)
               .catch(() => null),
-            new Promise((resolve) => setTimeout(() => {
-              console.warn('⏱️ Balance fetch timeout after 5 seconds');
-              resolve(null);
-            }, 5000)) // 5 second timeout for balance fetch
+            new Promise((resolve) => setTimeout(() => resolve(null), 5000))
           ])
         : Promise.resolve(null);
 
@@ -328,7 +308,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
       // Get wallet ID and address - set state immediately
       if (currentWalletId) {
-        console.log('💰 FinancialContext: Setting wallet state:', { walletId: currentWalletId, address: currentWalletAddress });
         setWalletId(currentWalletId);
         
         if (currentWalletAddress) {
@@ -337,21 +316,15 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         
         if (balanceData && balanceData.success && typeof balanceData.balance === 'number') {
           finalBalance = balanceData.balance;
-          console.log('💵 FinancialContext: Balance from Circle API:', finalBalance);
-        } else {
-          console.warn('❌ FinancialContext: Circle balance fetch failed or was skipped');
         }
-      } else {
-        console.log('⚠️ FinancialContext: No wallet ID available, skipping balance fetch');
       }
 
       if (transRes.error) {
         if (!transRes.error.message.includes("permission denied")) {
-          console.error("❌ Transactions fetch error:", transRes.error.message);
+          // Silent log
         }
       } else if (transRes.data) {
         rawTransactions = transRes.data;
-        console.log('📜 Transactions fetched:', rawTransactions.length);
       }
 
       if (settingsRes.data) {
@@ -393,7 +366,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
             });
           }
         } catch (err) {
-          console.error("❌ Failed to batch fetch transaction profiles:", err);
+          // Silent error handling
         }
       }
 
@@ -454,14 +427,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         };
       });
 
-      console.log('🎯 Setting state with:', {
-        balance: finalBalance,
-        transactions: mappedTransactions.length,
-        walletId: currentWalletId,
-        walletAddress: currentWalletAddress,
-        username: currentUsername
-      });
-
       setUsername(currentUsername);
       setUsernameChangedAt(currentUsernameChangedAt);
 
@@ -509,15 +474,12 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       });
       
       setThemeMode(dbTheme as any);
-      console.log('✅ FinancialContext: Data fetch complete');
     } catch (e: any) {
-      console.error("❌ FinancialContext: Sync error:", e);
       notify(`Sync error: ${e.message}`);
     } finally {
       completed = true;
       clearTimeout(timeout);
       setIsLoaded(true);
-      console.log('✅ FinancialContext: isLoaded set to true');
     }
   }, [user?.id, user?.email, supabase, notify]);
 
@@ -526,7 +488,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       // Only reset if we actually had a user before (logout scenario)
       // Don't reset on initial mount when user is null
       if (initialFetchDone.current) {
-        console.log("🔄 User logged out - resetting state");
         setState(INITIAL_STATE);
         setWalletId(null);
         setWalletAddress(null);
@@ -539,11 +500,10 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (initialFetchDone.current !== user.id) {
-      console.log("🚀 FinancialContext - Triggering initial data fetch for user:", user.id);
       fetchData().then(() => {
         initialFetchDone.current = user.id;
       }).catch(() => {
-        console.warn("⚠️ Initial fetch failed, will retry on re-render");
+        // Retry will happen on re-render
       });
     }
   }, [user?.id, fetchData]);
@@ -551,12 +511,8 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   // Dedicated balance refresh function with retry mechanism
   // Fully self-healing: does NOT require walletId - the server looks it up or creates it
   const refreshBalance = useCallback(async () => {
-    console.log('🔄 Refreshing balance with retry mechanism...');
-    
     const fetchBalanceWithRetry = async (attempt: number = 1, maxAttempts: number = 3): Promise<number | null> => {
       try {
-        console.log(`💰 Balance fetch attempt ${attempt}/${maxAttempts}...`);
-        
         const balanceResponse = await fetch('/api/wallet/balance', {
           credentials: 'include',
           method: 'POST',
@@ -567,7 +523,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
           if (typeof balanceData.balance === 'number') {
-            console.log(`✅ Balance from Circle API: $${balanceData.balance}`);
             return balanceData.balance;
           }
         }
@@ -575,20 +530,15 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         // If we didn't get a balance and have retries left, try again
         if (attempt < maxAttempts) {
           const delay = attempt * 1000; // 1s, 2s, 3s delays
-          console.log(`⏳ Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return fetchBalanceWithRetry(attempt + 1, maxAttempts);
         }
         
-        console.warn('⚠️ No USDC balance found after all attempts - keeping current balance');
         return null; // Return null to indicate no update, not 0
       } catch (error) {
-        console.error(`❌ Balance fetch attempt ${attempt} failed:`, error);
-        
         // Retry if we have attempts left
         if (attempt < maxAttempts) {
           const delay = attempt * 1000;
-          console.log(`⏳ Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return fetchBalanceWithRetry(attempt + 1, maxAttempts);
         }
@@ -601,12 +551,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     
     // Only update state if we got a valid balance back
     if (newBalance !== null) {
-      setState(prev => {
-        console.log(`🎯 Setting balance to Circle API value: $${newBalance} (was $${prev.balance})`);
-        return { ...prev, balance: newBalance };
-      });
-    } else {
-      console.log('ℹ️ Balance fetch returned null - keeping current balance');
+      setState(prev => ({ ...prev, balance: newBalance }));
     }
   }, [walletId]);
 
@@ -614,7 +559,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   // refreshBalance is self-healing - handles wallet creation/lookup on the server
   useEffect(() => {
     if (user && walletId) {
-      console.log('💰 Auto-fetching balance (walletId:', walletId, ')');
       refreshBalance();
     }
   }, [user?.id, walletId, refreshBalance]);
@@ -622,8 +566,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   // Set up realtime listener for transactions and auto-refresh balance
   useEffect(() => {
     if (!user?.id || !supabase || !walletId) return;
-
-    console.log('🔔 Setting up realtime transaction listener for user:', user.id);
 
     // Subscribe to transaction changes
     const channel = supabase
@@ -637,8 +579,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           filter: `user_id=eq.${user.id}`
         },
         async (payload) => {
-          console.log('🔔 Transaction change detected:', payload);
-          
           // Fetch fresh balance from Circle API - DO NOT add amounts locally
           if (!walletId) return;
           
@@ -653,12 +593,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
             if (balanceResponse.ok) {
               const balanceData = await balanceResponse.json();
               if (typeof balanceData.balance === 'number' && balanceData.balance >= 0) {
-                console.log(`💰 Realtime: Balance from Circle API: $${balanceData.balance}`);
                 setState(prev => ({ ...prev, balance: balanceData.balance }));
               }
             }
           } catch (error) {
-            console.error('❌ Realtime balance fetch failed:', error);
+            // Silent error handling
           }
           
           // Update transactions list
@@ -730,7 +669,6 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       .subscribe();
 
     return () => {
-      console.log('🔕 Cleaning up realtime listener');
       supabase.removeChannel(channel);
     };
   }, [user?.id, supabase, walletId]);
@@ -740,9 +678,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user?.id || !walletId) return;
 
-    console.log('⏰ Setting up periodic balance poll (30s interval)');
     const interval = setInterval(async () => {
-      console.log('⏰ Periodic poll: refreshing balance');
       try {
         const balanceResponse = await fetch('/api/wallet/balance', {
           credentials: 'include',
