@@ -19,6 +19,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { loading: authLoading, user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [forceRender, setForceRender] = useState(false);
   const redirectInProgress = useRef(false);
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/diag") || pathname?.startsWith("/pay/");
@@ -26,6 +27,13 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Force render after 3 seconds if still loading
+    const forceTimer = setTimeout(() => {
+      setForceRender(true);
+    }, 3000);
+    
+    return () => clearTimeout(forceTimer);
   }, []);
 
   // Auth guard: once auth finishes loading with no user, redirect to login
@@ -60,6 +68,56 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   if (!mounted || authLoading) {
+    // Force render after timeout even if still loading
+    if (forceRender && user) {
+      // Auth loaded with user, but something else is stuck - render anyway
+      return (
+        <div className="font-sans antialiased">
+          <SettingsModal />
+          <div className="flex h-screen overflow-hidden">
+            <div className="hidden md:flex flex-col h-screen flex-shrink-0">
+              <Sidebar mode="desktop" className="w-72" />
+            </div>
+
+            <AnimatePresence>
+              {mobileSidebarOpen && (
+                <Sidebar mode="mobile" mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
+              )}
+            </AnimatePresence>
+
+            <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+              <div className="md:hidden flex items-center justify-between px-4 h-14 bg-card/80 backdrop-blur-md border-b border-border/30 flex-shrink-0">
+                <button
+                  onClick={() => setMobileSidebarOpen(true)}
+                  className="h-9 w-9 rounded-xl bg-muted/30 flex items-center justify-center text-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="Open menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+                <Link href="/" className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                    <span className="text-primary-foreground font-black text-sm">S</span>
+                  </div>
+                  <span className="text-lg font-black tracking-tighter text-foreground uppercase">Setra</span>
+                </Link>
+                <div className="w-9" />
+              </div>
+
+              {pathname !== "/" && pathname !== "/dashboard" && <Navbar />}
+
+              <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background/50">
+                <div className="max-w-7xl mx-auto">
+                  <PageTransition>
+                    {children}
+                  </PageTransition>
+                </div>
+              </main>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
