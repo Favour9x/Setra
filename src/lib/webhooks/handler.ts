@@ -161,20 +161,21 @@ async function handleInboundTransaction(
 
   const isComplete = state === "COMPLETED" || state === "COMPLETE";
 
+  if (!isComplete) {
+    console.log(`⏭️ Inbound tx ${circleTxId} not complete: ${state}`);
+    return;
+  }
+
+  // Check for duplicate by BOTH tx_hash AND circle transaction ID
   const { data: existing } = await supabase
     .from("transactions")
     .select("id")
-    .eq("tx_hash", txHash)
+    .or(`tx_hash.eq.${txHash},metadata->>circle_transaction_id.eq.${circleTxId}`)
     .limit(1)
     .maybeSingle();
 
   if (existing) {
-    console.log(`⏭️ Inbound tx ${txHash} already recorded`);
-    return;
-  }
-
-  if (!isComplete) {
-    console.log(`⏭️ Inbound tx ${circleTxId} not complete: ${state}`);
+    console.log(`⏭️ Inbound tx ${txHash} (Circle ID: ${circleTxId}) already recorded`);
     return;
   }
 
@@ -186,6 +187,23 @@ async function handleInboundTransaction(
 
   if (!profile) {
     console.log(`⏭️ Destination wallet ${destinationAddress} not a Setra user`);
+    return;
+  }
+
+  // Double-check: look for recent duplicates by user + amount + type
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { data: recentDupe } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("user_id", profile.id)
+    .eq("amount", amount)
+    .eq("type", "income")
+    .gte("created_at", fiveMinAgo)
+    .limit(1)
+    .maybeSingle();
+
+  if (recentDupe) {
+    console.log(`⏭️ Duplicate inbound tx detected for user ${profile.id}, amount ${amount}, skipping`);
     return;
   }
 
@@ -206,6 +224,8 @@ async function handleInboundTransaction(
     },
     created_at: new Date().toISOString(),
   });
+
+  console.log(`✅ Inbound transaction recorded: ${amount} USDC to ${profile.id}`);
 
   await createNotification(
     profile.id,
