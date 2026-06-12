@@ -30,19 +30,20 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
+    // Check if profile already has a wallet — NEVER overwrite
     let profile = null;
     let fetchError = null;
 
     const serviceRoleRes = await supabase
       .from("profiles")
-      .select("wallet_id, wallet_address, email")
+      .select("wallet_id, wallet_address")
       .eq("id", userId)
       .maybeSingle();
 
     if (serviceRoleRes.error) {
       const authRes = await authSupabase
         .from("profiles")
-        .select("wallet_id, wallet_address, email")
+        .select("wallet_id, wallet_address")
         .eq("id", userId)
         .maybeSingle();
       profile = authRes.data;
@@ -58,6 +59,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Wallet already linked — return it idempotently
+    if (profile?.wallet_id) {
+      return NextResponse.json({
+        success: true,
+        existing: true,
+        wallets: [{
+          id: profile.wallet_id,
+          address: profile.wallet_address,
+          walletId: profile.wallet_id,
+          walletAddress: profile.wallet_address,
+        }],
+      });
+    }
+
     const { createWalletsForUser } = await import("@/lib/circle/client");
     const wallets = await createWalletsForUser(userId);
 
@@ -70,34 +85,33 @@ export async function POST(request: NextRequest) {
 
     const primaryWallet = wallets[0];
 
-    if (!profile?.wallet_id) {
-      let updateError = null;
-      const serviceRoleUpdate = await supabase
+    let updateError = null;
+    const serviceRoleUpdate = await supabase
+      .from("profiles")
+      .update({
+        wallet_id: primaryWallet.walletId,
+        wallet_address: primaryWallet.walletAddress,
+      })
+      .eq("id", userId);
+
+    if (serviceRoleUpdate.error) {
+      const authUpdate = await authSupabase
         .from("profiles")
         .update({
           wallet_id: primaryWallet.walletId,
           wallet_address: primaryWallet.walletAddress,
         })
         .eq("id", userId);
+      updateError = authUpdate.error;
+    }
 
-      if (serviceRoleUpdate.error) {
-        const authUpdate = await authSupabase
-          .from("profiles")
-          .update({
-            wallet_id: primaryWallet.walletId,
-            wallet_address: primaryWallet.walletAddress,
-          })
-          .eq("id", userId);
-        updateError = authUpdate.error;
-      }
-
-      if (updateError) {
-        console.error("Failed to save primary wallet to Supabase:", updateError);
-      }
+    if (updateError) {
+      console.error("Failed to save primary wallet to Supabase:", updateError);
     }
 
     return NextResponse.json({
       success: true,
+      existing: false,
       wallets: wallets.map((w) => ({
         id: w.walletId,
         address: w.walletAddress,
