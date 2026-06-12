@@ -18,7 +18,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { settings, isLoaded, username } = useFinancial();
   const { loading: authLoading, user } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [authTimeout, setAuthTimeout] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/diag") || pathname?.startsWith("/pay/");
@@ -28,22 +27,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!authLoading) return;
-    const t = setTimeout(() => setAuthTimeout(true), 4000);
-    return () => clearTimeout(t);
-  }, [authLoading]);
-
+  // Auth guard: once auth finishes loading with no user, redirect to login
   const redirectGuard = useRef(false);
-
-  // Safety net: redirect to login if auth has timed out with no user
-  useEffect(() => {
-    if (!mounted || !authTimeout) return;
-    if (!user) {
-      router.push("/login");
-    }
-  }, [mounted, authTimeout, user?.id, router]);
-
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
     if (!user) {
@@ -64,7 +49,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     return <main className="min-h-screen font-sans antialiased">{children}</main>;
   }
 
-  if (!mounted || (authLoading && !authTimeout)) {
+  if (!mounted || authLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -88,12 +73,10 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     <div className="font-sans antialiased">
       <SettingsModal />
       <div className="flex h-screen overflow-hidden">
-        {/* Desktop Sidebar - always visible */}
         <div className="hidden md:flex flex-col h-screen flex-shrink-0">
           <Sidebar mode="desktop" className="w-72" />
         </div>
 
-        {/* Mobile Sidebar Overlay */}
         <AnimatePresence>
           {mobileSidebarOpen && (
             <Sidebar mode="mobile" mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
@@ -101,7 +84,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
         </AnimatePresence>
 
         <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-          {/* Mobile header with hamburger */}
           <div className="md:hidden flex items-center justify-between px-4 h-14 bg-card/80 backdrop-blur-md border-b border-border/30 flex-shrink-0">
             <button
               onClick={() => setMobileSidebarOpen(true)}

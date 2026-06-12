@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
 
   let user = null;
   let username = null;
+  let authFailed = false;
   try {
     const { data } = await supabase.auth.getUser();
     user = data?.user ?? null;
@@ -59,12 +60,27 @@ export async function middleware(request: NextRequest) {
     }
   } catch (err) {
     console.error("Middleware auth retrieval failed:", err);
+    authFailed = true;
   }
 
   const isPublicPage = request.nextUrl.pathname.startsWith('/pay/') || request.nextUrl.pathname.startsWith('/diag')
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')
   const isSetupUsernamePage = request.nextUrl.pathname.startsWith('/setup-username')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+
+  // If auth API call failed (transient issue) but session cookies exist,
+  // skip all middleware redirects and let the request through. The
+  // client-side AuthContext/LayoutWrapper will handle auth enforcement.
+  // This prevents transient Supabase API failures from causing redirect loops.
+  if (!user && authFailed) {
+    const hasSessionCookie = request.cookies.getAll().some(c =>
+      c.name.startsWith('sb-') || c.name.includes('supabase')
+    );
+    if (hasSessionCookie) {
+      applyPendingCookies(supabaseResponse)
+      return supabaseResponse
+    }
+  }
 
   function redirectTo(path: string): NextResponse {
     const res = NextResponse.redirect(new URL(path, request.url))
