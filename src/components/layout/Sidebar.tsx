@@ -56,12 +56,44 @@ export function Sidebar({ className, mode = "desktop", mobileOpen, onMobileClose
   const [localIsPro, setLocalIsPro] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "6months" | "yearly">("monthly");
 
-  // Check robust local state for Pro status
+  // Check Pro status from database on mount, with localStorage as fallback
   useEffect(() => {
-    if (user?.id) {
-      const isPro = localStorage.getItem(`setra_is_pro_${user.id}`) === "true";
-      setLocalIsPro(isPro);
-    }
+    if (!user?.id) return;
+
+    const checkProStatus = async () => {
+      try {
+        // First check localStorage for instant UI
+        const localPro = localStorage.getItem(`setra_is_pro_${user.id}`) === "true";
+        setLocalIsPro(localPro);
+
+        // Then verify against database (source of truth)
+        const res = await fetch("/api/user/profile", {
+          credentials: "include",
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.profile) {
+            const dbIsPro = data.profile.is_pro === true;
+            
+            // Update localStorage to match database
+            if (dbIsPro) {
+              localStorage.setItem(`setra_is_pro_${user.id}`, "true");
+              setLocalIsPro(true);
+            } else if (localPro && !dbIsPro) {
+              // If localStorage says Pro but database says not Pro, trust database
+              localStorage.removeItem(`setra_is_pro_${user.id}`);
+              setLocalIsPro(false);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check Pro status:", err);
+        // On error, keep localStorage value
+      }
+    };
+
+    checkProStatus();
   }, [user?.id]);
 
   const isProUser = localIsPro;
