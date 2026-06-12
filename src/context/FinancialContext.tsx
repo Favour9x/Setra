@@ -257,7 +257,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       if (!currentWalletId) {
         console.log('🆕 FinancialContext: No wallet found in Supabase profiles. Calling /api/wallet/create...');
         const walletController = new AbortController();
-        const walletTimer = setTimeout(() => walletController.abort(), 8000);
+        const walletTimer = setTimeout(() => walletController.abort(), 30000);
         try {
           const createResponse = await fetch('/api/wallet/create', {
             signal: walletController.signal,
@@ -630,14 +630,16 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     });
   }, [walletId]);
 
-  // Auto-fetch balance on mount and whenever user changes
+  // Auto-fetch balance on mount, user change, and whenever wallet becomes available
   // refreshBalance is self-healing - handles wallet creation/lookup on the server
+  const prevWalletIdForBalance = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (user) {
-      console.log('💰 Auto-fetching balance');
+    if (user && walletId !== prevWalletIdForBalance.current) {
+      prevWalletIdForBalance.current = walletId;
+      console.log('💰 Auto-fetching balance (walletId:', walletId || 'null (server will resolve)', ')');
       refreshBalance();
     }
-  }, [user, refreshBalance]);
+  }, [user, walletId, refreshBalance]);
 
   // Set up realtime listener for transactions and auto-refresh balance
   useEffect(() => {
