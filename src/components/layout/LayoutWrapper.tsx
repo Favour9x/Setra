@@ -19,6 +19,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { loading: authLoading, user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const redirectInProgress = useRef(false);
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/diag") || pathname?.startsWith("/pay/");
   const isSetupUsernamePage = pathname?.startsWith("/setup-username");
@@ -28,19 +29,30 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Auth guard: once auth finishes loading with no user, redirect to login
+  // DO NOT include router, isAuthPage, or isSetupUsernamePage in deps - they cause loops
   useEffect(() => {
-    if (!mounted || authLoading || isAuthPage) return;
+    if (!mounted || authLoading) return;
+    if (redirectInProgress.current) return;
+    
+    // Skip redirects if already on an auth or public page
+    if (pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/diag") || pathname?.startsWith("/pay/")) return;
+    
     if (!user) {
+      redirectInProgress.current = true;
       router.push("/login");
       return;
     }
-    if (isLoaded && !username && !isSetupUsernamePage) {
+    
+    if (isLoaded && !username && !pathname?.startsWith("/setup-username")) {
+      redirectInProgress.current = true;
       router.push("/setup-username");
     }
-  }, [mounted, authLoading, user, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
+  }, [mounted, authLoading, user, isLoaded, username, pathname, router]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
+    // Reset redirect flag when pathname changes (navigation completed)
+    redirectInProgress.current = false;
   }, [pathname]);
 
   if (isAuthPage) {
