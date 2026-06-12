@@ -46,9 +46,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Initialize auth state by fetching current session
     const initializeAuth = async () => {
+      // Safety timeout: prevent infinite loading if getSession() hangs
+      const safetyTimer = setTimeout(() => {
+        console.warn("⚠️ Auth initialization timed out - forcing loading complete");
+        setLoading(false);
+      }, 8000);
+
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+        clearTimeout(safetyTimer);
+
         if (error) {
           console.error("Error getting session:", error);
         }
@@ -61,8 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
       } catch (err) {
+        clearTimeout(safetyTimer);
         console.error("Session fetch failed:", err);
       } finally {
+        clearTimeout(safetyTimer);
         // Always set loading to false after initial session fetch completes
         // This ensures loading state transitions correctly in all code paths
         setLoading(false);

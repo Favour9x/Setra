@@ -209,9 +209,14 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // Set a timeout to prevent hanging
+    // Set a timeout to prevent hanging - force isLoaded so the UI renders
+    // even if a backing service never responds.
+    let completed = false;
     const timeout = setTimeout(() => {
-      console.warn("⚠️ Data fetch timeout - forcing completion");
+      if (!completed) {
+        console.warn("⚠️ Data fetch timeout - forcing isLoaded to true");
+        setIsLoaded(true);
+      }
     }, 10000);
     
     try {
@@ -251,8 +256,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       // 2. Only call /api/wallet/create if wallet_id is NULL
       if (!currentWalletId) {
         console.log('🆕 FinancialContext: No wallet found in Supabase profiles. Calling /api/wallet/create...');
+        const walletController = new AbortController();
+        const walletTimer = setTimeout(() => walletController.abort(), 8000);
         try {
           const createResponse = await fetch('/api/wallet/create', {
+            signal: walletController.signal,
             credentials: 'include',
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -271,6 +279,8 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (walletError) {
           console.error('❌ FinancialContext: Wallet API request failed:', walletError);
+        } finally {
+          clearTimeout(walletTimer);
         }
       }
 
@@ -516,6 +526,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       console.error("❌ FinancialContext: Sync error:", e);
       notify(`Sync error: ${e.message}`);
     } finally {
+      completed = true;
       clearTimeout(timeout);
       setIsLoaded(true);
       console.log('✅ FinancialContext: isLoaded set to true');

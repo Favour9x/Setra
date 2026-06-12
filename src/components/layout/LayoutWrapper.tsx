@@ -36,6 +36,14 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   const redirectGuard = useRef(false);
 
+  // Safety net: redirect to login if auth has timed out with no user
+  useEffect(() => {
+    if (!mounted || !authTimeout) return;
+    if (!user) {
+      router.push("/login");
+    }
+  }, [mounted, authTimeout, user?.id, router]);
+
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
     if (!user) {
