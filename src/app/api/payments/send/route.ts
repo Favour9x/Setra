@@ -186,36 +186,20 @@ export async function POST(request: NextRequest) {
         .eq("wallet_address", resolvedToAddress)
         .maybeSingle();
 
-      const senderHandle = await getUserHandle(userId);
-
-      let recipientHandle = `@${recipientProfile?.username}`;
-      if (!recipientProfile?.username) {
-        recipientHandle = `${resolvedToAddress.substring(0, 6)}...${resolvedToAddress.substring(resolvedToAddress.length - 4)}`;
-      }
-
-      // Credit recipient's balance in the balances table
+      // Credit recipient's balance in the balances table (legacy support)
       if (recipientProfile?.id) {
         await creditUserBalance(adminSupabase, recipientProfile.id, parseFloat(amount));
         console.log(`✅ Recipient ${recipientProfile.id} balance credited with ${amount} USDC`);
-
-        await createNotification(
-          recipientProfile.id,
-          "payment_received",
-          "Payment Received",
-          `$${amount} USDC received from ${senderHandle}`,
-          { amount, sender: userId, tx_hash: txHash, link: "/transactions" }
-        );
       }
 
-      await createNotification(
-        userId,
-        "payment_sent",
-        "Payment Confirmed",
-        `Payment of $${amount} USDC sent to ${recipientHandle}`,
-        { amount, recipient: resolvedToAddress, tx_hash: txHash, link: "/transactions" }
-      );
-
+      // Send email receipt
       if (user.email) {
+        const senderHandle = await getUserHandle(userId);
+        let recipientHandle = `@${recipientProfile?.username}`;
+        if (!recipientProfile?.username) {
+          recipientHandle = `${resolvedToAddress.substring(0, 6)}...${resolvedToAddress.substring(resolvedToAddress.length - 4)}`;
+        }
+
         await sendTransactionReceiptEmail(user.email, {
           type: "payment_sent",
           amount: parseFloat(amount),
@@ -226,7 +210,7 @@ export async function POST(request: NextRequest) {
         }).catch(() => {});
       }
     } catch (notifErr) {
-      console.error("⚠️ Failed to trigger notifications:", notifErr);
+      console.error("⚠️ Failed to process post-payment tasks:", notifErr);
     }
 
     // Fetch sender's new balance for the response

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createNotification } from "@/lib/services/notification";
 
 export type LedgerTransactionInput = {
   userId: string;
@@ -75,7 +76,46 @@ export async function insertLedgerTransaction(client: any, input: LedgerTransact
     console.error("Failed to save transaction:", insertError);
   } else {
     console.log("✅ Transaction saved successfully");
+    
+    // Create notification for the transaction
+    try {
+      if (legacyType === "expense" || legacyType === "sent") {
+        // Outgoing payment notification
+        await createNotification(
+          input.userId,
+          "payment_sent",
+          "Payment Sent",
+          `Sent ${amount} USDC to ${input.displayRecipient || input.recipientUsername ? `@${input.recipientUsername}` : formatTxAddress(input.recipientAddress)}`,
+          {
+            amount,
+            recipient: input.recipientAddress,
+            tx_hash: input.txHash,
+            category: input.category
+          }
+        );
+      } else if (legacyType === "income" || legacyType === "received") {
+        // Incoming payment notification
+        await createNotification(
+          input.userId,
+          "payment_received",
+          "Payment Received",
+          `Received ${amount} USDC`,
+          {
+            amount,
+            tx_hash: input.txHash,
+            category: input.category
+          }
+        );
+      }
+    } catch (notifError) {
+      console.error("Failed to create transaction notification:", notifError);
+    }
   }
+}
+
+function formatTxAddress(address: string): string {
+  if (!address || address.length < 10) return address;
+  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 }
 
 /**
@@ -166,6 +206,24 @@ export async function insertRecipientReceivedTransaction(
     console.error(`❌ Failed to insert recipient received transaction for user ${recipientProfile.id}:`, error.message);
   } else {
     console.log(`✅ Received transaction recorded for user ${recipientProfile.id} (${recipientProfile.username || 'no username'}), amount: ${params.amount} USDC`);
+
+    // Create notification for received payment
+    try {
+      await createNotification(
+        recipientProfile.id,
+        "payment_received",
+        "Payment Received",
+        `Received ${params.amount} USDC${params.metadata?.subscriptionName ? ` from ${params.metadata.subscriptionName}` : ''}`,
+        {
+          amount: params.amount,
+          tx_hash: params.txHash,
+          category: params.category,
+          ...(params.metadata || {})
+        }
+      );
+    } catch (notifError) {
+      console.error("Failed to create notification for received payment:", notifError);
+    }
 
     // Trigger auto-save rules (percentage of incoming)
     try {
