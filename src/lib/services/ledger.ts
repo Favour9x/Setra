@@ -103,15 +103,33 @@ export async function insertRecipientReceivedTransaction(
   const { data: recipientProfile } = await client
     .from("profiles")
     .select("id, username")
-    .eq("wallet_address", params.destinationAddress)
+    .ilike("wallet_address", params.destinationAddress)
     .maybeSingle();
 
   if (!recipientProfile?.id) {
-    console.log(`⏭️ Recipient wallet ${params.destinationAddress} not a Setra user, skipping received record`);
+    console.log(`⏭️ Recipient wallet ${params.destinationAddress} not a Setra user, skipping received record (on-chain payment still succeeded)`);
     return;
   }
 
-  // Check for duplicate: match by recipient + amount + recent timestamp (within 5 min)
+  console.log(`✅ Found recipient profile: ${recipientProfile.id}, recording received transaction`);
+
+  // Check for duplicate by tx_hash first (most reliable)
+  if (params.txHash) {
+    const { data: existingByHash } = await client
+      .from("transactions")
+      .select("id")
+      .eq("tx_hash", params.txHash)
+      .eq("user_id", recipientProfile.id)
+      .eq("type", "income")
+      .maybeSingle();
+
+    if (existingByHash) {
+      console.log(`⏭️ Received transaction with txHash ${params.txHash} already exists for user ${recipientProfile.id}`);
+      return;
+    }
+  }
+
+  // Secondary check: match by recipient + amount + recent timestamp (within 5 min)
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const { data: existing } = await client
     .from("transactions")
@@ -124,13 +142,13 @@ export async function insertRecipientReceivedTransaction(
     .maybeSingle();
 
   if (existing) {
-    console.log(`⏭️ Received transaction for ${params.amount} USDC to ${params.destinationAddress} already exists, skipping`);
+    console.log(`⏭️ Received transaction for ${params.amount} USDC to ${params.destinationAddress} already exists (time-based check)`);
     return;
   }
 
   const { error } = await client.from("transactions").insert({
     user_id: recipientProfile.id,
-    recipient: params.destinationAddress,
+    recipient: params.displaySender || params.destinationAddress,
     amount: params.amount,
     type: "income",
     category: params.category || "Transfer",
@@ -145,9 +163,9 @@ export async function insertRecipientReceivedTransaction(
   });
 
   if (error) {
-    console.error("❌ Failed to insert recipient received transaction:", error.message);
+    console.error(`❌ Failed to insert recipient received transaction for user ${recipientProfile.id}:`, error.message);
   } else {
-    console.log(`✅ Received transaction recorded for user ${recipientProfile.id}`);
+    console.log(`✅ Received transaction recorded for user ${recipientProfile.id} (${recipientProfile.username || 'no username'}), amount: ${params.amount} USDC`);
 
     // Trigger auto-save rules (percentage of incoming)
     try {
@@ -167,6 +185,7 @@ export async function insertRecipientReceivedTransaction(
         const newSaved = Number(goal.saved_amount) + saveAmt;
         await client.from("savings_goals").update({ saved_amount: newSaved, updated_at: new Date().toISOString() }).eq("id", rule.goal_id);
         await client.from("savings_transactions").insert({ goal_id: rule.goal_id, user_id: recipientProfile.id, type: "deposit", amount: saveAmt });
+        console.log(`💰 Auto-saved ${saveAmt} USDC to savings goal ${rule.goal_id}`);
       }
     } catch (e) {
       console.error("Auto-save trigger error in ledger:", e);
