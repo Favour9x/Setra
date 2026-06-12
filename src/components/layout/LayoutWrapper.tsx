@@ -27,9 +27,20 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
+  // Safety timeout: if auth is still loading after 10 seconds, show content anyway
+  useEffect(() => {
+    if (authLoading) {
+      const timeout = setTimeout(() => {
+        console.warn("⚠️ Auth loading timeout - forcing content display");
+      }, 10000);
+      return () => clearTimeout(timeout);
+    }
+  }, [authLoading]);
+
   // Auth guard: once auth finishes loading with no user, redirect to login
   const redirectGuard = useRef(false);
   const lastRedirectState = useRef<string>("");
+  const redirectTimeout = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     if (!mounted || authLoading || isAuthPage) return;
@@ -38,14 +49,32 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     if (lastRedirectState.current === currentState) return;
     lastRedirectState.current = currentState;
     
+    // Clear any pending redirect
+    if (redirectTimeout.current) {
+      clearTimeout(redirectTimeout.current);
+      redirectTimeout.current = null;
+    }
+    
     if (!user) {
-      router.push("/login");
+      // Debounce redirect to login
+      redirectTimeout.current = setTimeout(() => {
+        router.push("/login");
+      }, 100);
       return;
     }
     if (isLoaded && !username && !isSetupUsernamePage && !redirectGuard.current) {
       redirectGuard.current = true;
-      router.push("/setup-username");
+      // Debounce redirect to setup-username
+      redirectTimeout.current = setTimeout(() => {
+        router.push("/setup-username");
+      }, 100);
     }
+    
+    return () => {
+      if (redirectTimeout.current) {
+        clearTimeout(redirectTimeout.current);
+      }
+    };
   }, [mounted, authLoading, user?.id, isLoaded, username, isSetupUsernamePage, isAuthPage, router]);
 
   useEffect(() => {
@@ -57,6 +86,18 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   if (!mounted || authLoading) {
+    // Add timeout fallback - if stuck loading for too long, show error state
+    if (mounted && authLoading) {
+      return (
+        <div className="h-screen w-screen flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary animate-pulse" />
+            <p className="text-xs text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">

@@ -133,13 +133,21 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Load settings & profile from localStorage on mount
+  const settingsLoadedRef = useRef(false);
+  
   useEffect(() => {
+    if (settingsLoadedRef.current) return;
+    
     if (!user) {
       // For non-authenticated users, just set loaded to true
-      setIsLoaded(true);
+      if (!settingsLoadedRef.current) {
+        settingsLoadedRef.current = true;
+        setIsLoaded(true);
+      }
       return;
     }
     
+    settingsLoadedRef.current = true;
     const savedSettings = localStorage.getItem(`${STORAGE_KEY_SETTINGS}_${user.id}`);
     const savedProfile = localStorage.getItem(`${STORAGE_KEY_PROFILE}_${user.id}`);
     
@@ -169,7 +177,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
     if (themeFromStorage) {
       setThemeMode(themeFromStorage as any);
     }
-  }, [user, setThemeMode]);
+  }, [user?.id, setThemeMode]);
 
   function loadCachedWallet() {
     if (typeof window === "undefined") return null;
@@ -529,6 +537,7 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
 
     if (!uid) {
       if (prevUserId.current) {
+        console.log("🔄 User logged out - resetting state");
         prevUserId.current = null;
         setState(INITIAL_STATE);
         setWalletId(null);
@@ -537,12 +546,20 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
         setUsernameChangedAt(null);
         initialFetchDone.current = null;
         fetchInProgress.current = false;
+        settingsLoadedRef.current = false;
         setIsLoaded(true);
       }
       return;
     }
 
-    prevUserId.current = uid;
+    // User changed
+    if (prevUserId.current !== uid) {
+      console.log("🔄 User changed - resetting fetch state");
+      prevUserId.current = uid;
+      initialFetchDone.current = null;
+      fetchInProgress.current = false;
+      settingsLoadedRef.current = false;
+    }
 
     if (initialFetchDone.current !== uid && !fetchInProgress.current) {
       fetchInProgress.current = true;
@@ -550,9 +567,11 @@ export function FinancialProvider({ children }: { children: React.ReactNode }) {
       fetchData().then(() => {
         initialFetchDone.current = uid;
         fetchInProgress.current = false;
-      }).catch(() => {
-        console.warn("⚠️ Initial fetch failed, will retry on re-render");
+      }).catch((err) => {
+        console.warn("⚠️ Initial fetch failed:", err);
         fetchInProgress.current = false;
+        // Still set loaded to true so UI doesn't hang
+        setIsLoaded(true);
       });
     }
   }, [user?.id, fetchData]);

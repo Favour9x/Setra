@@ -114,13 +114,10 @@ export const config = {
     /*
      * Match all request paths except:
      * - _next/static (static files)
-     * - _next/data (RSC data requests — middleware redirects here cause
-     *   Next.js client router to trigger full page navigations, which
-     *   can create redirect loops; client-side LayoutWrapper handles
-     *   auth enforcement for client navigations)
+     * - _next/data (RSC data requests)
      * - _next/image (image optimization files)
-     * - favicon.ico, images
+     * - favicon.ico, images, sw.js
      */
-    '/((?!_next/static|_next/data|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/data|_next/image|favicon.ico|sw.js|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
